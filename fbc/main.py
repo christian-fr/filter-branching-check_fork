@@ -4,7 +4,7 @@ from sympy import symbols, simplify, true, false
 from sympy.logic.boolalg import to_dnf
 from functools import reduce
 # import matplotlib.pyplot as plt
-
+import pygraphviz
 
 def main():
     p1, p2, p3, p4 = symbols("p1 p2 p3 p4")
@@ -56,6 +56,16 @@ def successor_soundness_check(g, v):
 def bfs_nodes(g, source):
     return [source] + [v for _, v in bfs_edges(g, source=source)]
 
+def draw_graph(g: nx.Graph, outfile: str):
+    tmp_g = g.copy()
+    for u, v, data in tmp_g.edges(data=True):
+        tmp_g.update(edges=[(u, v, {"label": str(data["filter"])})])
+    for u, data in tmp_g.nodes(data=True):
+        tmp_g.update(nodes=[(u, {"label": f"{u}\n{data['pred']}"})])
+    agraph = nx.nx_agraph.to_agraph(tmp_g)
+    agraph.node_attr['shape'] = 'box'
+    agraph.layout(prog='dot')
+    agraph.draw(path=outfile)
 
 if __name__ == "__main__":
     main()
