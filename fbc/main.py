@@ -7,14 +7,23 @@ from functools import reduce
 
 
 def main():
-    x = symbols("x")
+    p1, p2, p3, p4 = symbols("p1 p2 p3 p4")
 
     g = nx.DiGraph()
-    g.add_nodes_from([1, 2, 3, 4])
-    g.add_edges_from([(1, 2, {"filter": x <= 0}),
-                      (1, 3, {"filter": x > 0}),
-                      (2, 4, {"filter": true}),
-                      (3, 4, {"filter": true})])
+    g.add_nodes_from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    g.add_edges_from([(1, 2, {"filter": p1}),
+                      (1, 3, {"filter": ~p1}),
+                      (2, 4, {"filter": p2}),
+                      (2, 5, {"filter": ~p2}),
+                      (3, 6, {"filter": p3}),
+                      (3, 7, {"filter": ~p3}),
+                      (4, 8, {"filter": true}),
+                      (5, 8, {"filter": p4}),
+                      (5, 9, {"filter": ~p4}),
+                      (6, 9, {"filter": true}),
+                      (7, 9, {"filter": true}),
+                      (8, 10, {"filter": true}),
+                      (9, 10, {"filter": true})])
 
     successor_sanity_check(g, source=1)
 
@@ -24,9 +33,12 @@ def main():
         if len(in_nodes) == 0:
             node_pred = true
         else:
-            node_pred = reduce(lambda a, b: (a[0] & a[1]) | (b[0] & b[1]), in_nodes)
+            node_pred = simplify(reduce(lambda res, p: res | (p[0] & p[1]), in_nodes, false))
 
         g.nodes[v].update({"pred": node_pred})
+
+    for v in bfs_nodes(g, source=1):
+        print(v, g.nodes[v])
 
 
 def successor_sanity_check(g, source):
