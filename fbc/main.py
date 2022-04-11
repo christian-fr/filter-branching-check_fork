@@ -1,71 +1,38 @@
 import networkx as nx
-from networkx import bfs_successors, bfs_edges
-from sympy import symbols, simplify, true, false
-from sympy.logic.boolalg import to_dnf
-from functools import reduce
-# import matplotlib.pyplot as plt
-import pygraphviz
+from sympy import symbols, true
+from fbc.eval import graph_soundness_check, evaluate_node_predicates
+from fbc.util import show_graph
+
 
 def main():
     p1, p2, p3, p4 = symbols("p1 p2 p3 p4")
 
     g = nx.DiGraph()
     g.add_nodes_from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-    g.add_edges_from([(1, 2, {"filter": p1}),
-                      (1, 3, {"filter": ~p1}),
+    g.add_edges_from([(1, 2, {"filter": p1 > 0}),
+                      (1, 3, {"filter": p1 <= 0}),
                       (2, 4, {"filter": p2}),
                       (2, 5, {"filter": ~p2}),
                       (3, 6, {"filter": p3}),
                       (3, 7, {"filter": ~p3}),
                       (4, 8, {"filter": true}),
                       (5, 8, {"filter": p4}),
-                      (5, 9, {"filter": ~p4}),
+                      (5, 10, {"filter": ~p4}),
                       (6, 9, {"filter": true}),
                       (7, 9, {"filter": true}),
                       (8, 10, {"filter": true}),
                       (9, 10, {"filter": true})])
 
-    successor_sanity_check(g, source=1)
+    if not graph_soundness_check(g, source=1):
+        raise ValueError("Soundness check failed")
 
-    for v in bfs_nodes(g, source=1):
-        in_nodes = [(g.nodes[v1]['pred'], g[v1][v2]['filter']) for v1, v2, data in g.in_edges(v, data=True)]
+    evaluate_node_predicates(g, source=1)
 
-        if len(in_nodes) == 0:
-            node_pred = true
-        else:
-            node_pred = simplify(reduce(lambda res, p: res | (p[0] & p[1]), in_nodes, false))
+    if g.nodes[10]['pred'] is not true:
+        raise ValueError(f"Graph evaluation failed: final node cannot be reached unless '{g.nodes[10]['pred']}'")
 
-        g.nodes[v].update({"pred": node_pred})
+    show_graph(g)
 
-    for v in bfs_nodes(g, source=1):
-        print(v, g.nodes[v])
-
-
-def successor_sanity_check(g, source):
-    return all([successor_soundness_check(g, v) for v in bfs_nodes(g, source)])
-
-
-def successor_soundness_check(g, v):
-    out_predicates = [d['filter'] for d in g[v].values()]
-    if len(out_predicates) != 0:
-        return simplify(reduce(lambda a, b: a | b, out_predicates)) is true
-    else:
-        return True
-
-
-def bfs_nodes(g, source):
-    return [source] + [v for _, v in bfs_edges(g, source=source)]
-
-def draw_graph(g: nx.Graph, outfile: str):
-    tmp_g = g.copy()
-    for u, v, data in tmp_g.edges(data=True):
-        tmp_g.update(edges=[(u, v, {"label": str(data["filter"])})])
-    for u, data in tmp_g.nodes(data=True):
-        tmp_g.update(nodes=[(u, {"label": f"{u}\n{data['pred']}"})])
-    agraph = nx.nx_agraph.to_agraph(tmp_g)
-    agraph.node_attr['shape'] = 'box'
-    agraph.layout(prog='dot')
-    agraph.draw(path=outfile)
 
 if __name__ == "__main__":
     main()
