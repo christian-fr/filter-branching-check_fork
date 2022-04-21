@@ -46,3 +46,4 @@ def parse_zofar_code(input_str: str) -> parsimonious.nodes.Node:
 if __name__ == '__main__':
     tree = parse_zofar_code('!(zofar.asNumber(var001) ge 2 and (((!var002.value or var003.value))))')
     print(tree)
+
