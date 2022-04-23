@@ -1,9 +1,10 @@
 from lxml import objectify
 # ToDo: implement DiGraph creation
-from networkx import DiGraph
-from pathlib import Path
+# from networkx import DiGraph
 from dataclasses import dataclass, field
 from collections.abc import Iterable
+from pathlib import Path
+from typing import Union
 
 _here = Path(__file__).parent
 
@@ -83,12 +84,13 @@ class Questionnaire(dict):
             else:
                 self[page_uid].transitions = transition_tuple
         else:
-            self.add_page(QmlPage(page_uid=page_uid,transitions=transition_tuple))
+            self.add_page(QmlPage(page_uid=page_uid, transitions=transition_tuple))
 
 
 def find_variables_in_descendants(element: objectify.ObjectifiedElement,
                                   visible_condition: str,
-                                  page_uid: str) -> list:
+                                  page_uid: str,
+                                  var_type_dict: dict) -> list:
     visible_condition = visible_condition.strip()
     tmp_visible_condition = ""
     tmp_list = []
@@ -121,15 +123,20 @@ def find_variables_in_descendants(element: objectify.ObjectifiedElement,
     for child_element in element.iterchildren():
         tmp_list += (find_variables_in_descendants(element=child_element,
                                                    visible_condition=visible_condition,
-                                                   page_uid=page_uid))
+                                                   page_uid=page_uid,
+                                                   var_type_dict=var_type_dict))
     return tmp_list
 
 
-def variables_on_page_body(page: objectify.ObjectifiedElement) -> list:
+def variables_on_page_body(page: objectify.ObjectifiedElement,
+                           var_type_dict: dict) -> list:
     page_uid = page.attrib['uid']
     variables_list = []
     if hasattr(page, 'body'):
-        variables_list += (find_variables_in_descendants(page.body, visible_condition='true', page_uid=page_uid))
+        variables_list += (find_variables_in_descendants(element=page.body,
+                                                         visible_condition='true',
+                                                         page_uid=page_uid,
+                                                         var_type_dict=var_type_dict))
     return variables_list
 
 
@@ -165,6 +172,8 @@ def page_transitions(page_object: objectify.ObjectifiedElement) -> tuple:
     page_transitions_tuple = []
     if hasattr(page_object, 'transitions'):
         for transition_element in page_object.transitions.iterchildren():
+            if transition_element.tag == 'comment':
+                continue
             if 'condition' in transition_element.attrib:
                 transition_condition = transition_element.attrib['condition']
             else:
@@ -179,9 +188,8 @@ def page_generator(root: objectify.ObjectifiedElement) -> Iterable:
     return (page_element for page_element in root.page)
 
 
-if __name__ == '__main__':
-    xml_input_file = Path(_here.parent, r'data/questionnaire.xml')
-    xml_root = read_xml(xml_input_file)
+def create_questionnaire(input_file: Union[str, Path]) -> Questionnaire:
+    xml_root = read_xml(Path(input_file))
 
     # init questionnaire object
     questionnaire = Questionnaire()
@@ -197,9 +205,16 @@ if __name__ == '__main__':
 
     # iterate over all pages
     for page in page_generator(root=xml_root):
-        for variable in variables_on_page_body(page=page):
+        for variable in variables_on_page_body(page=page,
+                                               var_type_dict=var_type_dict):
             questionnaire.add_variable(variable)
         questionnaire.add_transition_tuple(page_transitions(page_object=page))
 
-        print()
+        # print()
+    # print()
+    return questionnaire
+
+
+if __name__ == '__main__':
+    questionnaire = create_questionnaire(input_file=r'/home/christian/PycharmProjects/filter-branching-check/data/questionnaire.xml')
     print()
