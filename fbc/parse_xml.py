@@ -210,11 +210,4 @@ def create_questionnaire(input_file: Union[str, Path]) -> Questionnaire:
             questionnaire.add_variable(variable)
         questionnaire.add_transition_tuple(page_transitions(page_object=page))
 
-        # print()
-    # print()
     return questionnaire
-
-
-if __name__ == '__main__':
-    questionnaire = create_questionnaire(input_file=r'/home/christian/PycharmProjects/filter-branching-check/data/questionnaire.xml')
-    print()

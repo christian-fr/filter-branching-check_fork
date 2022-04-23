@@ -1,27 +1,5 @@
 import pyparsing as pp
-from qml.xml_read import transitions
-
-
-def main2():
-    integer = pp.Word(pp.nums).set_name('integer')           # simple unsigned integer
-    variable = pp.Char(pp.alphas).set_name('variable')          # single letter variable, such as x, z, m, etc.
-    arith_op = pp.one_of("+ - * /").set_name('operator')      # arithmetic operators
-    equation = variable + "=" + integer + arith_op + integer    # will match "x=2+2", etc.
-    equation.set_name('equation')
-
-    # equation.run_tests("""\
-    # # simple plus
-    # x=2+2
-    #
-    # # with spaces
-    # x = 2+2
-    #
-    # # multiply and more spaces
-    # a = 10   *   4
-    #
-    # # invalid operator
-    # r= 1234^ 100000
-    # """)
+from fbc.parse_xml import create_questionnaire
 
 
 def infix_to_lisp(t):
@@ -45,56 +23,65 @@ def infix_to_lisp(t):
     return lisp
 
 
+class LispParser:
+    def __init__(self):
+        self.keywords = {'true', 'false', 'gt', 'ge', 'lt', 'le', 'and', 'or'}
+        self.scoped_identifier = pp.delimited_list(pp.common.identifier, delim='.') \
+            .add_condition(lambda t: all([_t not in self.keywords for _t in t.as_list()])) \
+            .add_parse_action(lambda t: ('lookup', t.as_list()))
+
+        self.bool_lit = pp.one_of(["true", "false"]).set_parse_action(lambda t: t[0] == "true")
+
+        self.term_plain = pp.Forward()
+        self.term = self.term_plain | pp.nested_expr("(", ")", self.term_plain)
+
+        self.predicate = (
+                self.term('lterm') +
+                pp.one_of(["gt", "ge", "lt", "le", "==", "!="])("pred") +
+                self.term('rterm')
+        ).set_parse_action(lambda t: (t['pred'], t['lterm'], t['rterm']))
+        self.bool_exp_plain = pp.Forward()
+        self.bool_exp_and_or = pp.infix_notation(self.bool_exp_plain, [
+            ('and', 2, pp.opAssoc.LEFT, infix_to_lisp),
+            ('or', 2, pp.opAssoc.LEFT, infix_to_lisp)
+        ])
+
+        self.bool_exp_nested = pp.Forward()
+        self.bool_exp_nested <<= pp.Group((
+                                             pp.Opt("!")('not') +
+                                             pp.Suppress("(") +
+                                             (self.bool_exp_nested | self.bool_exp_and_or)('exp') +
+                                             pp.Suppress(")")
+                                     ).set_parse_action(lambda t: ('not', t['exp']) if 'not' in t else t['exp']))
+        self.bool_exp = self.bool_exp_and_or | self.bool_exp_nested
+
+        self.function_argument = self.bool_exp | self.term | self.scoped_identifier
+        self.function_call = (
+                self.scoped_identifier +
+                pp.Group(pp.Suppress("(") + pp.delimited_list(self.function_argument) + pp.Suppress(")"))
+        ).set_parse_action(lambda t: ('call', t[0], t[1].as_list()))
+
+        self.term_plain <<= (pp.common.number | pp.sgl_quoted_string | self.function_call | self.scoped_identifier)
+        self.bool_exp_plain <<= (
+                pp.Opt("!")('not') +
+                (self.bool_lit | self.predicate | self.function_call | self.scoped_identifier)("exp")
+        ).set_parse_action(lambda t: ('not', t['exp']) if 'not' in t else t['exp'])
+
+    def parse(self, s):
+        return self.bool_exp.parse_string(s, parse_all=True)[0]
+
+
 def main():
-    keywords = {'true', 'false', 'gt', 'ge', 'lt', 'le', 'and', 'or'}
-    scoped_identifier = pp.delimited_list(pp.common.identifier, delim='.') \
-        .add_condition(lambda t: all([_t not in keywords for _t in t.as_list()])) \
-        .add_parse_action(lambda t: ('lookup', t.as_list()))
+    questionnaire = create_questionnaire(input_file='data/questionnaire2.xml')
+    trans_conditions = {p: [t.transition_condition for t in list(questionnaire[p].transitions)]
+                        for p in questionnaire.keys()}
+    p = LispParser()
 
-    bool_lit = pp.one_of(["true", "false"]).set_parse_action(lambda t: t[0] == "true")
-
-    term_plain = pp.Forward()
-    term = term_plain | pp.nested_expr("(", ")", term_plain)
-
-    predicate = (
-            term('lterm') +
-            pp.one_of(["gt", "ge", "lt", "le", "==", "!="])("pred") +
-            term('rterm')
-    ).set_parse_action(lambda t: (t['pred'], t['lterm'], t['rterm']))
-    bool_exp_plain = pp.Forward()
-    bool_exp_and_or = pp.infix_notation(bool_exp_plain, [
-        ('and', 2, pp.opAssoc.LEFT, infix_to_lisp),
-        ('or', 2, pp.opAssoc.LEFT, infix_to_lisp)
-    ])
-
-    bool_exp_nested = pp.Forward()
-    bool_exp_nested <<= pp.Group((
-            pp.Opt("!")('not') +
-            pp.Suppress("(") +
-            (bool_exp_nested | bool_exp_and_or)('exp') +
-            pp.Suppress(")")
-    ).set_parse_action(lambda t: ('not', t['exp']) if 'not' in t else t['exp']))
-    bool_exp = bool_exp_and_or | bool_exp_nested
-
-    function_argument = bool_exp | term | scoped_identifier
-    function_call = (
-            scoped_identifier +
-            pp.Group(pp.Suppress("(") + pp.delimited_list(function_argument) + pp.Suppress(")"))
-    ).set_parse_action(lambda t: ('call', t[0], t[1].as_list()))
-
-    term_plain <<= (pp.common.number | pp.sgl_quoted_string | function_call | scoped_identifier)
-    bool_exp_plain <<= (
-            pp.Opt("!")('not') +
-            (bool_lit | predicate | function_call | scoped_identifier)("exp")
-    ).set_parse_action(lambda t: ('not', t['exp']) if 'not' in t else t['exp'])
-
-    print(bool_exp.parse_string('zofar.foo(x.value, (u gt 5) or !v.w)', parse_all=True)[0])
-    # tr = transitions('data/questionnaire.xml')
-    # for page, trans_list in tr.items():
-    #     for trans in trans_list:
-    #         res = bool_exp.parse_string(trans, parse_all=True)
-    #         print(trans)
-    #         print(res[0])
+    for page, trans_list in trans_conditions.items():
+        for trans in trans_list:
+            res = p.parse(trans)
+            print(trans)
+            print(res)
 
 
 if __name__ == "__main__":
