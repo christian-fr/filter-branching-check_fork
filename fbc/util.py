@@ -63,3 +63,7 @@ def show_graph(g: nx.Graph, image_format='png') -> None:
     image_data = agraph.draw(format=image_format)
     image = Image.open(io.BytesIO(image_data))
     image.show()
+
+
+def flatten(t):
+    return [item for sublist in t for item in sublist]

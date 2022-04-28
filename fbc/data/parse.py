@@ -1,5 +1,4 @@
 import pyparsing as pp
-from fbc.parse_xml import create_questionnaire
 
 
 def infix_to_lisp(t):
@@ -69,20 +68,3 @@ class LispParser:
 
     def parse(self, s):
         return self.bool_exp.parse_string(s, parse_all=True)[0]
-
-
-def main():
-    questionnaire = create_questionnaire(input_file='data/questionnaire2.xml')
-    trans_conditions = {p: [t.transition_condition for t in list(questionnaire[p].transitions)]
-                        for p in questionnaire.keys()}
-    p = LispParser()
-
-    for page, trans_list in trans_conditions.items():
-        for trans in trans_list:
-            res = p.parse(trans)
-            print(trans)
-            print(res)
-
-
-if __name__ == "__main__":
-    main()

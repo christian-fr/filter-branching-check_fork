@@ -3,5 +3,3 @@ networkx
 matplotlib
 pygraphviz
 Pillow
-parsimonious
-lxml
