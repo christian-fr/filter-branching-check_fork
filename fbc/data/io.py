@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import List, Dict, Union
 from xml.etree import ElementTree
 from fbc.util import flatten
-from fbc.data import Variable, VarRef, Transition, QmlPage, Questionnaire
+from fbc.data import Variable, VarRef, Transition, Page, Questionnaire
 
 ns = {'zofar': 'http://www.his.de/zofar/xml/questionnaire'}
 
@@ -93,7 +93,7 @@ def questionnaire(root: ElementTree.Element) -> Questionnaire:
     """
     variables = variable_declarations(root=root)
 
-    pages = [QmlPage(page.attrib['uid'], transitions(page), var_refs(page, variables))
+    pages = [Page(page.attrib['uid'], transitions(page), var_refs(page, variables))
              for page in root.findall("zofar:page", ns)]
 
     return Questionnaire(variables, pages)
