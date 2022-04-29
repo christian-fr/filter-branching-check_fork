@@ -65,5 +65,11 @@ def show_graph(g: nx.Graph, image_format='png') -> None:
     image.show()
 
 
-def flatten(t):
-    return [item for sublist in t for item in sublist]
+def flatten(ll):
+    """
+    Flattens given list of lists by one level
+
+    :param ll: list of lists
+    :return: flattened list
+    """
+    return [it for li in ll for it in li]

@@ -4,7 +4,8 @@ from typing import List, Optional, Dict
 
 @dataclass
 class Transition:
-    target_uid: str
+    target: str
+    # condition as spring expression that has to be fulfilled on order to follow the transition
     condition: Optional[str] = None
 
 
@@ -17,11 +18,12 @@ class Variable:
 @dataclass
 class VarRef:
     variable: Variable
+    # list of conditions (as spring expression) that have to be fulfilled in order to reach the variable reference
     condition: List[str] = field(default_factory=list)
 
 
 @dataclass
-class QmlPage:
+class Page:
     page_uid: str
     transitions: List[Transition]
     var_refs: List[VarRef]
@@ -30,4 +32,4 @@ class QmlPage:
 @dataclass
 class Questionnaire:
     variables: Dict[str, Variable]
-    pages: List[QmlPage]
+    pages: List[Page]
