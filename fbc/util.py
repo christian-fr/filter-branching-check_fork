@@ -73,3 +73,16 @@ def flatten(ll):
     :return: flattened list
     """
     return [it for li in ll for it in li]
+
+
+def group_by(li, key, val=None):
+    if val is None:
+        val = lambda x: x
+
+    g = {}
+    for i in li:
+        k = key(i)
+        if k not in g:
+            g[k] = []
+        g[k].append(val(i))
+    return g

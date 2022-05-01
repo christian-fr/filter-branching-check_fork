@@ -58,19 +58,11 @@ class LispParser:
                 self.term('rterm')
         ).set_parse_action(lambda t: (t['pred'], t['lterm'], t['rterm']))
         self.bool_exp_plain = pp.Forward()
-        self.bool_exp_and_or = pp.infix_notation(self.bool_exp_plain, [
+        self.bool_exp = pp.infix_notation(self.bool_exp_plain, [
+            ('!', 1, pp.opAssoc.RIGHT, lambda t: ('not', t[0][1])),
             ('and', 2, pp.opAssoc.LEFT, lambda t: infix_to_lisp(t[0])),
             ('or', 2, pp.opAssoc.LEFT, lambda t: infix_to_lisp(t[0]))
         ])
-
-        self.bool_exp_nested = pp.Forward()
-        self.bool_exp_nested <<= pp.Group((
-                                             pp.Opt("!")('not') +
-                                             pp.Suppress("(") +
-                                             (self.bool_exp_nested | self.bool_exp_and_or)('exp') +
-                                             pp.Suppress(")")
-                                     ).set_parse_action(lambda t: ('not', t['exp']) if 'not' in t else t['exp']))
-        self.bool_exp = self.bool_exp_and_or | self.bool_exp_nested
 
         self.function_argument = self.bool_exp | self.term | self.scoped_identifier
         self.function_call = (
@@ -79,10 +71,8 @@ class LispParser:
         ).set_parse_action(lambda t: ('call', t[0], t[1].as_list()))
 
         self.term_plain <<= (pp.common.number | pp.sgl_quoted_string | self.function_call | self.scoped_identifier)
-        self.bool_exp_plain <<= (
-                pp.Opt("!")('not') +
-                (self.bool_lit | self.predicate | self.function_call | self.scoped_identifier)("exp")
-        ).set_parse_action(lambda t: ('not', t['exp']) if 'not' in t else t['exp'])
+        self.bool_exp_plain <<= (self.bool_lit | self.predicate | self.function_call | self.scoped_identifier)\
+            .set_parse_action(lambda t: t[0])
 
     def parse(self, s):
         """

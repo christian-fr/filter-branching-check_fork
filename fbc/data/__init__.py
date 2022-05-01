@@ -11,6 +11,7 @@ class Transition:
 
 @dataclass
 class Variable:
+    name: str
     type: str
     is_preload: bool = False
 
@@ -23,10 +24,24 @@ class VarRef:
 
 
 @dataclass
+class AnswerOption:
+    uid: str
+    value: int
+    label: str
+
+
+@dataclass
+class ResponseDomain:
+    variable: Variable
+    answer_options: List[AnswerOption]
+
+
+@dataclass
 class Page:
     page_uid: str
     transitions: List[Transition]
     var_refs: List[VarRef]
+    response_domains: List[ResponseDomain]
 
 
 @dataclass

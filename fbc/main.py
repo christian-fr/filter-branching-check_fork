@@ -1,9 +1,8 @@
 import networkx as nx
 from sympy import true, Symbol
-from fbc.eval import graph_soundness_check, evaluate_node_predicates, Category
-from fbc.util import show_graph, flatten
+from fbc.eval import graph_soundness_check, evaluate_node_predicates, Category, eval_questionnaire
+from fbc.util import show_graph
 from fbc.data.io import read_questionnaire
-from fbc.data.parse import LispParser
 
 
 def main2():
@@ -56,15 +55,8 @@ def main2():
 
 def main():
     q = read_questionnaire("data/questionnaire2.xml")
-
-    trans_conditions = flatten([p.transitions for p in q.pages])
-    parser = LispParser()
-
-    for trans in trans_conditions:
-        if trans.condition is not None:
-            res = parser.parse(trans.condition)
-            print(trans)
-            print(res)
+    q = eval_questionnaire(q)
+    print()
 
 
 if __name__ == "__main__":

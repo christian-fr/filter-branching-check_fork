@@ -2,17 +2,17 @@ from pathlib import Path
 from typing import List, Dict, Union
 from xml.etree import ElementTree
 from fbc.util import flatten
-from fbc.data import Variable, VarRef, Transition, Page, Questionnaire
+from fbc.data import Variable, VarRef, Transition, Page, Questionnaire, AnswerOption, ResponseDomain
 
 ns = {'zofar': 'http://www.his.de/zofar/xml/questionnaire'}
 
 
 def variable_declarations(root: ElementTree.Element) -> Dict[str, Variable]:
     """
-    Reads variables from `zofar:variables` and `zofar:preloads` sections from a given document.
+    Reads variables from `zofar:variables` and `zofar:preloads` sections
 
     :param root: root xml element
-    :return: dictionary mapping from variable name to `Variable`
+    :return: dictionary mapping from variable name to a `Variable`
     """
     variable_dict = {}
 
@@ -23,25 +23,42 @@ def variable_declarations(root: ElementTree.Element) -> Dict[str, Variable]:
             for preload_item in preload.findall("zofar:preloadItem", ns):
                 variable_name = preload_item.get('variable')
                 if variable_name is not None:
-                    variable_dict[f'PRELOAD{variable_name}'] = Variable(type='string', is_preload=True)
+                    variable_dict[f'PRELOAD{variable_name}'] = Variable(f'PRELOAD{variable_name}', 'string', True)
 
     # read `variables` section
     variables = root.find('zofar:variables', ns)
     if variables is not None:
         for variable in variables.findall("zofar:variable", ns):
             if variable.get('name') is not None and variable.get('type') is not None:
-                variable_dict[variable.get('name')] = Variable(type=variable.get('type'), is_preload=False)
+                variable_dict[variable.get('name')] = Variable(variable.get('name'), variable.get('type'), False)
 
     return variable_dict
 
 
+def response_domains(page: ElementTree.Element, variables: Dict[str, Variable]) -> List[ResponseDomain]:
+    body = page.find('zofar:body', ns)
+    if body is None:
+        return []
+
+    rds = []
+    for rd in body.findall(".//zofar:responseDomain[@variable]", ns):
+        var = variables[rd.get('variable')]
+
+        answer_options = [AnswerOption(ao.get('uid'), int(ao.get('value')), ao.get('label'))
+                          for ao in rd.findall(".//zofar:answerOption", ns)]
+
+        rds.append(ResponseDomain(var, answer_options))
+
+    return rds
+
+
 def var_refs(page: ElementTree.Element, variables: Dict[str, Variable]) -> List[VarRef]:
     """
-    Extract variable references from a given page.
+    Extract variable references from a given page
 
     :param page: page xml element
-    :param variables: dictionary mapping variable names to `Variables` (see `variable_declarations`)
-    :return: list of `VarRef`s on given page
+    :param variables: dictionary mapping variable names to a `Variable` (see `variable_declarations`)
+    :return: list of `VarRef`s
     """
     # define function for recursive search
     def _var_refs(_element: ElementTree.Element, _variables: Dict[str, Variable], _visible: List[str]) -> List[VarRef]:
@@ -72,7 +89,8 @@ def var_refs(page: ElementTree.Element, variables: Dict[str, Variable]) -> List[
 
 def transitions(page: ElementTree.Element) -> List[Transition]:
     """
-    Extract transitions from given page
+    Extract transitions from a given page
+
     :param page: page xml element
     :return: list of `Transition`s
     """
@@ -87,13 +105,14 @@ def transitions(page: ElementTree.Element) -> List[Transition]:
 
 def questionnaire(root: ElementTree.Element) -> Questionnaire:
     """
-    Extract questionnaire from xml root element.
+    Extract questionnaire from xml root element
+
     :param root: xml root element
     :return: `Questionnaire`
     """
     variables = variable_declarations(root=root)
 
-    pages = [Page(page.attrib['uid'], transitions(page), var_refs(page, variables))
+    pages = [Page(page.attrib['uid'], transitions(page), var_refs(page, variables), response_domains(page, variables))
              for page in root.findall("zofar:page", ns)]
 
     return Questionnaire(variables, pages)
@@ -101,7 +120,7 @@ def questionnaire(root: ElementTree.Element) -> Questionnaire:
 
 def read_questionnaire(input_path: Union[Path, str]) -> Questionnaire:
     """
-    Reads file from `input_path` converts it to a questionnaire.
+    Reads file from `input_path` and converts it into a `Questionnaire`
 
     :param input_path: path to input file as `str` or `Path`
     :return: `Questionnaire`
