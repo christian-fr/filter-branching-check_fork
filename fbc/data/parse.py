@@ -1,4 +1,5 @@
 import pyparsing as pp
+pp.ParserElement.enablePackrat()
 
 
 def infix_to_lisp(tokens, op_assoc='left'):
@@ -50,7 +51,14 @@ class LispParser:
         self.bool_lit = pp.one_of(["true", "false"]).set_parse_action(lambda t: t[0] == "true")
 
         self.term_plain = pp.Forward()
-        self.term = self.term_plain | pp.nested_expr("(", ")", self.term_plain)
+
+        self.term = pp.infix_notation(self.term_plain, [
+            ('-', 1, pp.opAssoc.RIGHT, lambda t: ('neg', t[0][1])),
+            ('*', 2, pp.opAssoc.LEFT, lambda t: infix_to_lisp(t[0])),
+            ('/', 2, pp.opAssoc.LEFT, lambda t: infix_to_lisp(t[0])),
+            ('+', 2, pp.opAssoc.LEFT, lambda t: infix_to_lisp(t[0])),
+            ('-', 2, pp.opAssoc.LEFT, lambda t: infix_to_lisp(t[0])),
+        ])
 
         self.predicate = (
                 self.term('lterm') +
@@ -58,6 +66,7 @@ class LispParser:
                 self.term('rterm')
         ).set_parse_action(lambda t: (t['pred'], t['lterm'], t['rterm']))
         self.bool_exp_plain = pp.Forward()
+
         self.bool_exp = pp.infix_notation(self.bool_exp_plain, [
             ('!', 1, pp.opAssoc.RIGHT, lambda t: ('not', t[0][1])),
             ('and', 2, pp.opAssoc.LEFT, lambda t: infix_to_lisp(t[0])),

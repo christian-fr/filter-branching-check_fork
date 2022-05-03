@@ -1,33 +1,15 @@
 import networkx as nx
 from sympy import true, Symbol
-from fbc.eval import graph_soundness_check, evaluate_node_predicates, Category, eval_questionnaire
-from fbc.util import show_graph
-from fbc.data.io import read_questionnaire
+from fbc.eval import graph_soundness_check, evaluate_node_predicates, Enum, construct_graph
+from fbc.util import show_graph, draw_graph
+from fbc.data.xml import read_questionnaire
 
 
 def main2():
     g = nx.DiGraph()
-    """g.add_nodes_from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-    g.add_edges_from([(1, 2, {"filter": Symbol('p1') > 0}),
-                      (1, 3, {"filter": Symbol('p1') <= 0}),
-                      (2, 4, {"filter": Symbol('p2')}),
-                      (2, 5, {"filter": ~Symbol('p2')}),
-                      (3, 6, {"filter": Symbol('p3')}),
-                      (3, 7, {"filter": ~Symbol('p3')}),
-                      (4, 8, {"filter": true}),
-                      (5, 8, {"filter": Symbol('p4')}),
-                      (5, 10, {"filter": ~Symbol('p4')}),
-                      (6, 9, {"filter": true}),
-                      (7, 9, {"filter": true}),
-                      (8, 10, {"filter": true}),
-                      (9, 10, {"filter": true}),
-                      (11, 3, {"filter": true}),
-                      (1, 11, {"filter": Symbol('p5')}),
-                      (1, 12, {"filter": ~Symbol('p5')}),
-                      (12, 3, {"filter": true})])"""
 
-    p1 = Category('p1', ['y', 'n'])
-    p2 = Category('p2', ['y', 'n'])
+    p1 = Enum('p1', ['y', 'n'])
+    p2 = Enum('p2', ['y', 'n'])
 
     g.add_nodes_from([1, 2, 3, 4, 5, 6, 7, 8])
     g.add_edges_from([(1, 2, {"filter": p1.eq('n') & p2.eq('n')}),
@@ -42,10 +24,10 @@ def main2():
                       (6, 8, {"filter": true}),
                       (7, 8, {"filter": true})])
 
-    if not graph_soundness_check(g, source=1, cats=[p1, p2]):
+    if not graph_soundness_check(g, source=1, enums=[p1, p2]):
         raise ValueError("Soundness check failed")
 
-    evaluate_node_predicates(g, source=1, cats=[p1, p2])
+    evaluate_node_predicates(g, source=1, enums=[p1, p2])
 
     if g.nodes[8]['pred'] is not true:
         raise ValueError(f"Graph evaluation failed: final node cannot be reached unless '{g.nodes[8]['pred']}'")
@@ -54,9 +36,9 @@ def main2():
 
 
 def main():
-    q = read_questionnaire("data/questionnaire2.xml")
-    q = eval_questionnaire(q)
-    print()
+    q = read_questionnaire("data/questionnaire.xml")
+    g = construct_graph(q)
+    draw_graph(g, 'graph.png')
 
 
 if __name__ == "__main__":

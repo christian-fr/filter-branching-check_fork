@@ -1,10 +1,63 @@
 from pathlib import Path
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Optional
 from xml.etree import ElementTree
 from fbc.util import flatten
-from fbc.data import Variable, VarRef, Transition, Page, Questionnaire, AnswerOption, ResponseDomain
+from dataclasses import dataclass, field
 
 ns = {'zofar': 'http://www.his.de/zofar/xml/questionnaire'}
+
+
+var_type_map = {
+    'singleChoiceAnswerOption': 'enum'
+}
+
+
+@dataclass
+class Transition:
+    target_uid: str
+    # condition as spring expression that has to be fulfilled on order to follow the transition
+    condition: Optional[str] = None
+
+
+@dataclass
+class Variable:
+    name: str
+    type: str
+    is_preload: bool = False
+
+
+@dataclass
+class VarRef:
+    variable: Variable
+    # list of conditions (as spring expression) that have to be fulfilled in order to reach the variable reference
+    condition: List[str] = field(default_factory=list)
+
+
+@dataclass
+class EnumValue:
+    uid: str
+    value: int
+    label: str
+
+
+@dataclass
+class EnumValues:
+    variable: Variable
+    values: List[EnumValue]
+
+
+@dataclass
+class Page:
+    uid: str
+    transitions: List[Transition]
+    var_refs: List[VarRef]
+    enum_values: List[EnumValues]
+
+
+@dataclass
+class Questionnaire:
+    variables: Dict[str, Variable]
+    pages: List[Page]
 
 
 def variable_declarations(root: ElementTree.Element) -> Dict[str, Variable]:
@@ -30,26 +83,27 @@ def variable_declarations(root: ElementTree.Element) -> Dict[str, Variable]:
     if variables is not None:
         for variable in variables.findall("zofar:variable", ns):
             if variable.get('name') is not None and variable.get('type') is not None:
-                variable_dict[variable.get('name')] = Variable(variable.get('name'), variable.get('type'), False)
+                var_type = var_type_map.get(variable.get('type'), variable.get('type'))
+                variable_dict[variable.get('name')] = Variable(variable.get('name'), var_type, False)
 
     return variable_dict
 
 
-def response_domains(page: ElementTree.Element, variables: Dict[str, Variable]) -> List[ResponseDomain]:
+def enum_values(page: ElementTree.Element, variables: Dict[str, Variable]) -> List[EnumValues]:
     body = page.find('zofar:body', ns)
     if body is None:
         return []
 
-    rds = []
+    evs = []
     for rd in body.findall(".//zofar:responseDomain[@variable]", ns):
         var = variables[rd.get('variable')]
 
-        answer_options = [AnswerOption(ao.get('uid'), int(ao.get('value')), ao.get('label'))
-                          for ao in rd.findall(".//zofar:answerOption", ns)]
+        enum_value_list = [EnumValue(ao.get('uid'), int(ao.get('value')), ao.get('label'))
+                           for ao in rd.findall(".//zofar:answerOption", ns)]
 
-        rds.append(ResponseDomain(var, answer_options))
+        evs.append(EnumValues(var, enum_value_list))
 
-    return rds
+    return evs
 
 
 def var_refs(page: ElementTree.Element, variables: Dict[str, Variable]) -> List[VarRef]:
@@ -112,7 +166,7 @@ def questionnaire(root: ElementTree.Element) -> Questionnaire:
     """
     variables = variable_declarations(root=root)
 
-    pages = [Page(page.attrib['uid'], transitions(page), var_refs(page, variables), response_domains(page, variables))
+    pages = [Page(page.attrib['uid'], transitions(page), var_refs(page, variables), enum_values(page, variables))
              for page in root.findall("zofar:page", ns)]
 
     return Questionnaire(variables, pages)
