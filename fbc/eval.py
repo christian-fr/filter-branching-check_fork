@@ -164,7 +164,7 @@ def simplify_enums(exp: Expr, enums: List[Enum]) -> Expr:
     """
     for i in range(len(enums)):
         enum = enums[i]
-        other_enums = enums[:i] + enums[i+1:]
+        other_enums = enums[:i] + enums[i + 1:]
         # combined null substitution for all `other_enums`
         null_subs = reduce(lambda a, b: {**a, **b.null_subs}, other_enums, {})
 
@@ -449,7 +449,7 @@ def pre_compile(lisp, s: Scope):
             else:
                 return op, lop
         else:
-            return (op, ) + tuple([pre_compile(a, s) for a in args])
+            return (op,) + tuple([pre_compile(a, s) for a in args])
     elif isinstance(lisp, list):
         return [pre_compile(i, s) for i in lisp]
     else:
@@ -471,7 +471,7 @@ def enum_transform(lisp, scope: Scope):
                 lit = args[0]
                 sym_ast = args[1]
             else:
-                return (op, ) + tuple([enum_transform(arg, scope) for arg in args])
+                return (op,) + tuple([enum_transform(arg, scope) for arg in args])
 
             _, sym_name, sym_type = sym_ast
             lit_type = type_check(lit)
@@ -503,7 +503,7 @@ def enum_transform(lisp, scope: Scope):
 
                 return op, ('symbol', enum.var, lit_type), ('symbol', enum.member_vars[lit], lit_type)
         else:
-            return (op, ) + tuple([enum_transform(arg, scope) for arg in args])
+            return (op,) + tuple([enum_transform(arg, scope) for arg in args])
     else:
         return lisp
 
@@ -618,7 +618,8 @@ def enum_dict(pages: List[xml.Page]):
     evs_list = flatten([p.enum_values for p in pages])
     enum_maps = [(evs.variable.name, {ev.uid: ev.value for ev in evs.values}) for evs in evs_list]
     enum_map_groups = group_by(enum_maps, lambda x: x[0], lambda x: x[1])
-    enum_map_groups = {c: (cgs[0] if all([cg == cgs[0] for cg in cgs[1:]]) else cgs) for c, cgs in enum_map_groups.items()}
+    enum_map_groups = {c: (cgs[0] if all([cg == cgs[0] for cg in cgs[1:]]) else cgs) for c, cgs in
+                       enum_map_groups.items()}
     invalid_enum_map_groups = [(c, cgs) for c, cgs in enum_map_groups.items() if isinstance(cgs, list)]
     valid_enum_map_groups = {c: cgs for c, cgs in enum_map_groups.items() if isinstance(cgs, dict)}
 
