@@ -79,10 +79,8 @@ def tweak_label_strings(g: nx.DiGraph) -> nx.DiGraph:
     return h
 
 
-
-
 def main():
-    q = read_questionnaire("data/questionnaire.xml")
+    q = read_questionnaire("data/questionnaire02.xml")
     g = construct_graph(q)
     # h = tweak_label_strings(g)
 
@@ -129,6 +127,15 @@ def main():
     draw_graph(g, 'graph.png')
     h = tweak_label_strings(g)
     draw_graph(h, 'graph_label.png')
+
+    if not graph_soundness_check(g, source=1, enums=[p1, p2]):
+        raise ValueError("Soundness check failed")
+
+    evaluate_node_predicates(g, source=1, enums=[p1, p2])
+
+    if g.nodes[8]['pred'] is not true:
+        raise ValueError(f"Graph evaluation failed: final node cannot be reached unless '{g.nodes[8]['pred']}'")
+
 
 
 if __name__ == "__main__":

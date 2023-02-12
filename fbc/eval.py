@@ -615,8 +615,11 @@ def evaluate_lisp(lisp):
 
 
 def enum_dict(pages: List[xml.Page]):
+    # get flattened list of EnumValues objects from lists of enum values from all pages
     evs_list = flatten([p.enum_values for p in pages])
+    # create list of tuples form EnumValues objets
     enum_maps = [(evs.variable.name, {ev.uid: ev.value for ev in evs.values}) for evs in evs_list]
+    # group those enum values into a dict: {varname: {enum uid: value dict}}
     enum_map_groups = group_by(enum_maps, lambda x: x[0], lambda x: x[1])
     enum_map_groups = {c: (cgs[0] if all([cg == cgs[0] for cg in cgs[1:]]) else cgs) for c, cgs in
                        enum_map_groups.items()}

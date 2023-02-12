@@ -3,7 +3,7 @@ from networkx import bfs_edges
 from PIL import Image
 import io
 from pygraphviz.agraph import AGraph
-from typing import List, Any, Optional
+from typing import List, Any, Optional, Callable, Union, Dict, Tuple
 from contextlib import contextmanager
 import time
 
@@ -77,9 +77,20 @@ def flatten(ll):
     return [it for li in ll for it in li]
 
 
-def group_by(li, key, val=None):
+def group_by(li: List[Tuple[str, Dict[str, Union[str, int, float]]]], key: Callable,
+             val: Optional[Callable] = None)\
+        -> Dict[Any, List[Any]]:
+    """
+
+    @param li: list of keys and values that should be grouped
+    @param key: callable that returns the key  the values should be grouped by
+    @param val: callable that return the value that should be grouped
+    @return: a dictionary of objects as keys and List of objects as values
+    """
     if val is None:
-        val = lambda x: x
+        # val is being redeclared: val() returns input value (i.e. the key)
+        def val(x):
+            return x
 
     g = {}
     for i in li:
@@ -102,6 +113,7 @@ class Timer(object):
     >> print(f"Completed in {t:5.3f}")
     Completed in 1.000
     """
+
     def __init__(self, start: Optional[float] = None):
         """
         Initialize a timer
