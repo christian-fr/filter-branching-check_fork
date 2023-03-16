@@ -3,25 +3,25 @@
 	xmlns:zofar="http://www.his.de/zofar/xml/questionnaire" xmlns:display="http://www.dzhw.eu/zofar/xml/display"
 	language="de">
 	<zofar:name>TEST</zofar:name>
-	<zofar:description></zofar:description>
+	<zofar:description/>
 	<zofar:preloads>
 		<zofar:preload password="part1" name="part1">
 			<zofar:preloadItem variable="var001" value="1" />
 			<zofar:preloadItem variable="var002" value="1" />
 			<zofar:preloadItem variable="var003" value="1" />
 		</zofar:preload>
-		<zofar:preload password="part2" name="part2"></zofar:preload>
-		<zofar:preload password="part3" name="part3"></zofar:preload>
-		<zofar:preload password="tester1" name="tester1"></zofar:preload>
-		<zofar:preload password="tester2" name="tester2"></zofar:preload>
-		<zofar:preload password="tester3" name="tester3"></zofar:preload>
-		<zofar:preload password="tester4" name="tester4"></zofar:preload>
-		<zofar:preload password="tester5" name="tester5"></zofar:preload>
-		<zofar:preload password="tester6" name="tester6"></zofar:preload>
-		<zofar:preload password="tester7" name="tester7"></zofar:preload>
-		<zofar:preload password="tester8" name="tester8"></zofar:preload>
-		<zofar:preload password="tester9" name="tester9"></zofar:preload>
-		<zofar:preload password="tester10" name="tester10"></zofar:preload>						
+		<zofar:preload password="part2" name="part2"/>
+		<zofar:preload password="part3" name="part3"/>
+		<zofar:preload password="tester1" name="tester1"/>
+		<zofar:preload password="tester2" name="tester2"/>
+		<zofar:preload password="tester3" name="tester3"/>
+		<zofar:preload password="tester4" name="tester4"/>
+		<zofar:preload password="tester5" name="tester5"/>
+		<zofar:preload password="tester6" name="tester6"/>
+		<zofar:preload password="tester7" name="tester7"/>
+		<zofar:preload password="tester8" name="tester8"/>
+		<zofar:preload password="tester9" name="tester9"/>
+		<zofar:preload password="tester10" name="tester10"/>
 	</zofar:preloads>
 
 
@@ -55,8 +55,6 @@
 		<zofar:variable name="var04" type="string"/>
 		<!-- A04 -->
 		<zofar:variable name="var05" type="singleChoiceAnswerOption"/>
-		<!-- A05 -->
-		<zofar:variable name="var06" type="string"/>
 	</zofar:variables>
  
     <zofar:page uid="index">
@@ -189,22 +187,6 @@
     			</zofar:responseDomain>
     		</zofar:questionSingleChoice>
 
-    	  		<zofar:questionSingleChoice uid="sc2">
-    			<zofar:header>
-    				<zofar:question uid="q1">
-						Bitte geben Sie an, was aktuell auf Sie zutrifft.
-    				</zofar:question>
-    				<zofar:instruction uid="is">Ihr Promotionsverfahren gilt als abgeschlossen, wenn Sie die letzte Prüfung (in der Regel: Disputation oder Rigorosum) erfolgreich abgelegt haben.
-    				</zofar:instruction>
-    			</zofar:header>
-    			<zofar:responseDomain variable="var02" uid="rd">
-    				<zofar:answerOption uid="ao1" value="1" label="Ich tue nichts."></zofar:answerOption>
-    				<zofar:answerOption uid="ao2" value="2" label="Ich tue viel."></zofar:answerOption>
-    				<zofar:answerOption uid="ao3" value="3" label="Ich habe mal etwas getan."></zofar:answerOption>
-    				<zofar:answerOption uid="ao4" value="4" label="Ich werde wieder etwas tun."></zofar:answerOption>
-    			</zofar:responseDomain>
-    		</zofar:questionSingleChoice>
-
     		<zofar:section uid="sw" visible="navigatorBean.isSame() or zofar.isBooleanSet('flag_A01',sessionController.participant)">
 				<zofar:header>
 					<zofar:text uid="t" block="true">
@@ -308,6 +290,20 @@
 					</zofar:question>
 				</zofar:header>
 			</zofar:questionOpen>
+			<zofar:questionSingleChoice uid="sc2">
+    			<zofar:header>
+    				<zofar:question uid="q1">
+						Bitte geben Sie noch etwas an, was gestern auf Sie zutraf.
+    				</zofar:question>
+    			</zofar:header>
+    			<zofar:responseDomain variable="var05" uid="rd">
+					<zofar:answerOption uid="ao1" value="1" label="Ich tat gestern nichts."/>
+					<zofar:answerOption uid="ao2" value="2" label="Ich tat gestern viel."/>
+					<zofar:answerOption uid="ao3" value="3" label="Ich tat gestern etwas."/>
+					<zofar:answerOption uid="ao6" value="6" label="Trifft nicht auf mich zu."/>
+    			</zofar:responseDomain>
+    		</zofar:questionSingleChoice>
+
 		</zofar:body>
 		<zofar:transitions>
 			<zofar:transition target="end" />
@@ -323,6 +319,21 @@
 					</zofar:question>
 				</zofar:header>
 			</zofar:questionOpen>
+			<zofar:questionSingleChoice uid="sc2">
+    			<zofar:header>
+    				<zofar:question uid="q1">
+						Bitte geben Sie noch etwas an, was gestern auf Sie zutraf.
+    				</zofar:question>
+    			</zofar:header>
+    			<zofar:responseDomain variable="var05" uid="rd">
+					<zofar:answerOption uid="ao1" value="1" label="Ich tat gestern nichts."/>
+					<zofar:answerOption uid="ao2" value="2" label="Ich tat gestern viel."/>
+					<zofar:answerOption uid="ao3" value="3" label="Ich tat gestern etwas."/>
+					<zofar:answerOption uid="ao4" value="4" label="Gestern war Sonntag."/>
+					<zofar:answerOption uid="ao5" value="5" label="An Gestern kann ich mich nicht erinnern."/>
+    			</zofar:responseDomain>
+    		</zofar:questionSingleChoice>
+
 		</zofar:body>
 		<zofar:transitions>
 			<zofar:transition target="end" />

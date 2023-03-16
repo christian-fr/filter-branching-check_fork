@@ -1,8 +1,8 @@
 import networkx as nx
 from sympy import true, Symbol
-from fbc.eval import graph_soundness_check, evaluate_node_predicates, Enum, construct_graph
-from fbc.util import show_graph, draw_graph
-from fbc.data.xml import read_questionnaire
+from fbc.eval import graph_soundness_check, Enum, construct_graph, evaluate_node_predicates
+from fbc.util import show_graph, draw_graph, flatten
+from fbc.data.xml import read_questionnaire, EnumValue
 import re
 from fbc.eval import bfs_nodes
 from sympy import simplify, true, false, Expr, Symbol, Eq, Ne, Not, Le, Lt, Ge, Gt, And, Or, Float, Integer
@@ -27,6 +27,8 @@ def main2():
                       (5, 8, {"filter": true}),
                       (6, 8, {"filter": true}),
                       (7, 8, {"filter": true})])
+
+    draw_graph(g, 'graph_main2.png')
 
     if not graph_soundness_check(g, source=1, enums=[p1, p2]):
         raise ValueError("Soundness check failed")
@@ -80,9 +82,8 @@ def tweak_label_strings(g: nx.DiGraph) -> nx.DiGraph:
 
 
 def main():
-    q = read_questionnaire("data/questionnaire02.xml")
+    q = read_questionnaire("data/questionnaire.xml")
     g = construct_graph(q)
-    # h = tweak_label_strings(g)
 
     nodes = bfs_nodes(g, source='index')
 
@@ -103,7 +104,6 @@ def main():
             if len(in_edges) == 0:
                 g.nodes[v].update({"pred": true})
                 processed_nodes.add(v)
-
 
             elif all(['pred' in g.nodes[v_parent] for v_parent, _, _ in in_edges]):
                 # check if all parent nodes are already evaluated
@@ -128,15 +128,22 @@ def main():
     h = tweak_label_strings(g)
     draw_graph(h, 'graph_label.png')
 
-    if not graph_soundness_check(g, source=1, enums=[p1, p2]):
-        raise ValueError("Soundness check failed")
+    enums = [Enum(name=enum.variable.name,
+                  members={v.value for v in enum.values}) for enum in flatten([p.enum_values for p in q.pages])]
 
-    evaluate_node_predicates(g, source=1, enums=[p1, p2])
+    try:
+        assert graph_soundness_check(g, source='index', enums=enums)
+    except ValueError as err:
+        raise ValueError(err)
+    except AssertionError as err:
+        raise AssertionError(err)
+
+    #evaluate_node_predicates(g, source='index', enums=enums)
 
     if g.nodes[8]['pred'] is not true:
         raise ValueError(f"Graph evaluation failed: final node cannot be reached unless '{g.nodes[8]['pred']}'")
 
 
-
 if __name__ == "__main__":
+    # main2()
     main()

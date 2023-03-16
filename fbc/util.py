@@ -33,7 +33,7 @@ def to_agraph(g: nx.Graph) -> AGraph:
 
     # add node 'pred' labels
     for u, data in tmp_g.nodes(data=True):
-        tmp_g.update(nodes=[(u, {"label": f"{u}\n{(data['pred'] if 'pred' in data else '')}"})])
+        tmp_g.update(nodes=[(u, {"label": f"{u}\\n{(data['pred'] if 'pred' in data else '')}"})])
 
     # convert to agraph
     agraph = nx.nx_agraph.to_agraph(tmp_g)

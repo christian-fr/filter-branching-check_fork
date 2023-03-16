@@ -1,6 +1,9 @@
+from collections import defaultdict
+
 import networkx as nx
 from functools import reduce, cached_property
 from typing import Any, List, Union, Dict
+
 from fbc.util import bfs_nodes, flatten, group_by
 from sympy import simplify, true, false, Expr, Symbol, Eq, Ne, Not, Le, Lt, Ge, Gt, And, Or, Float, Integer
 from sympy.core import evaluate as sympy_evaluate
@@ -22,7 +25,7 @@ class Enum:
         :param members: list of enum members
         :param typ: type of enum (must be one of ['string', 'number', None])
         """
-        if typ not in ['string', 'number', None]:
+        if typ not in ['string', 'number', 'bool', None]:
             raise ValueError("typ must be one of ['string', 'number', None]")
 
         self.name = name
@@ -74,6 +77,7 @@ class Enum:
         return iter(self.members)
 
 
+# duplicate of better implementation in main.main()
 def evaluate_node_predicates(g: nx.DiGraph, source: Any, enums: List[Enum]) -> Any:
     """
     Evaluates all node predicates in `g` reachable from `source` node. As a result each node will contain a 'pred'
@@ -125,21 +129,41 @@ def evaluate_node_predicates(g: nx.DiGraph, source: Any, enums: List[Enum]) -> A
         nodes = [v for v in nodes if v not in processed_nodes]
 
 
-def graph_soundness_check(g: nx.Graph, source: Any, enums: List[Enum]) -> bool:
+def graph_soundness_check(g: nx.Graph, source: Any, enums: List[Enum], exception: bool = False) -> bool:
     """
-    Checks weather the `soundness_check` applies to all nodes in the graph
+    Checks whether the `soundness_check` applies to all nodes in the graph
 
     :param g: graph
     :param source: node to start from
     :param enums: list of enumerations regarded during evaluation
-    :return: True, if the `soundness_check` applies to all nodes in the graph
+    @param g:
+    @param source:
+    @param enums:
+    @param exception:
+    @return: True, if the `soundness_check` applies to all nodes in the graph
+
     """
-    return all([soundness_check(g, v, enums) for v in bfs_nodes(g, source)])
+    soundness_check_results = [soundness_check(g, v, enums) for v in bfs_nodes(g, source)]
+    result = all(soundness_check_results)
+
+    soundness_check_results_02 = []
+    soundness_check_nodes_02 = []
+    for v in bfs_nodes(g, source):
+        soundness_check_results_02.append(soundness_check(g, v, enums))
+        soundness_check_nodes_02.append(v)
+
+    result02 = all(soundness_check_results_02)
+    nodes_that_failed_soundness_check = [v for b, v in zip(soundness_check_results_02, soundness_check_nodes_02) if
+                                         not b]
+    if not result02:
+        raise ValueError(
+            f'The following nodes do not pass soundness check (outgoing edges conditions): {nodes_that_failed_soundness_check}')
+    return result
 
 
 def soundness_check(g: nx.Graph, v: Any, enums: List[Enum]) -> bool:
     """
-    Checks weather the disjunction of all outbound edge filters of a node is True.
+    Checks whether the disjunction of all outbound edge filters of a node is True.
 
     :param g: graph
     :param v: node to evaluate
@@ -168,8 +192,17 @@ def simplify_enums(exp: Expr, enums: List[Enum]) -> Expr:
         # combined null substitution for all `other_enums`
         null_subs = reduce(lambda a, b: {**a, **b.null_subs}, other_enums, {})
 
-        if all([exp.subs({**null_subs, **enum.subs(m)}) == true for m in enum.members]):
+        tmp_list = []
+        for m in enum.members:
+            old_exp = exp.copy()
+            sub_dict = {**null_subs, **enum.subs(m)}
+            new_exp = exp.subs(sub_dict)
+            tmp_list.append(new_exp == true)
+        if all(tmp_list):
             exp = exp.subs(enum.null_subs)
+
+        ###if all([exp.subs({**null_subs, **enum.subs(m)}) == true for m in enum.members]):
+        ###    exp = exp.subs(enum.null_subs)
 
     return exp
 
@@ -621,14 +654,31 @@ def enum_dict(pages: List[xml.Page]):
     enum_maps = [(evs.variable.name, {ev.uid: ev.value for ev in evs.values}) for evs in evs_list]
     # group those enum values into a dict: {varname: {enum uid: value dict}}
     enum_map_groups = group_by(enum_maps, lambda x: x[0], lambda x: x[1])
+    enum_map_groups2 = enum_map_groups.copy()
     enum_map_groups = {c: (cgs[0] if all([cg == cgs[0] for cg in cgs[1:]]) else cgs) for c, cgs in
                        enum_map_groups.items()}
-    invalid_enum_map_groups = [(c, cgs) for c, cgs in enum_map_groups.items() if isinstance(cgs, list)]
-    valid_enum_map_groups = {c: cgs for c, cgs in enum_map_groups.items() if isinstance(cgs, dict)}
+    # soundness check of enum groups
+    valid_enum_map_groups = defaultdict(dict)
+    for c, cgs in enum_map_groups.items():
+        if isinstance(cgs, list):
+            for enum in cgs:
+                for ao, val in enum.items():
+                    if ao not in valid_enum_map_groups[c]:
+                        valid_enum_map_groups[c][ao] = val
+                    else:
+                        try:
+                            assert valid_enum_map_groups[c][ao] == val
+                        except AssertionError as err:
+                            raise AssertionError(f'different ao uid / value combinations found: {c}: {cgs}')
 
-    if len(invalid_enum_map_groups) != 0:
-        print(invalid_enum_map_groups)
-        raise ValueError("found invalid enum")
+    # invalid_enum_map_groups = [(c, cgs) for c, cgs in enum_map_groups.items() if isinstance(cgs, list)]
+
+    valid_enum_map_groups.update(
+        {c: cgs for c, cgs in enum_map_groups.items() if isinstance(cgs, dict)})
+
+    # if len(invalid_enum_map_groups) != 0:
+    #    print(invalid_enum_map_groups)
+    #    raise ValueError("found invalid enum")
 
     enums = {}
     for var, veg in valid_enum_map_groups.items():
@@ -687,11 +737,11 @@ class SpringExpEnumEvaluator(SpringExpEvaluator):
         super().__init__(variable, enums, [enum_transform])
 
     @classmethod
-    def from_questionnaire(cls, q: xml.Questionnaire):
+    def from_questionnaire(cls, q: xml.Questionnaire) -> "SpringExpEnumEvaluator":
         enums = enum_dict(q.pages)
         variables = {v.name: ZofarVariable.from_variable(v) for v in q.variables.values()}
 
-        return SpringExpEnumEvaluator(variables, enums)
+        return cls(variables, enums)
 
 
 def construct_graph(q: xml.Questionnaire):
@@ -701,6 +751,7 @@ def construct_graph(q: xml.Questionnaire):
     g.add_nodes_from([p.uid for p in q.pages])
 
     edges = []
+    # iterate over all pages and calculate filter conditions
     for page in q.pages:
         neg_trans_filters = []
         for trans in page.transitions:
@@ -708,7 +759,6 @@ def construct_graph(q: xml.Questionnaire):
                 trans_filter = evaluator(trans.condition)
             else:
                 trans_filter = true
-
             excluding_trans_filter = simplify(And(*neg_trans_filters + [trans_filter]))
             edges.append((page.uid, trans.target_uid, {'filter': excluding_trans_filter}))
             neg_trans_filters.append(Not(trans_filter))
