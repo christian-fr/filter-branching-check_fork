@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<zofar:questionnaire xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:zofar="http://www.his.de/zofar/xml/questionnaire" xmlns:display="http://www.dzhw.eu/zofar/xml/display"
+	language="de">
+	<zofar:name>TEST</zofar:name>
+	<zofar:description></zofar:description>
+	<zofar:preloads>
+		<zofar:preload password="part1" name="part1">
+			<zofar:preloadItem variable="var001" value="1" />
+			<zofar:preloadItem variable="var002" value="1" />
+			<zofar:preloadItem variable="var003" value="1" />
+		</zofar:preload>
+		<zofar:preload password="part2" name="part2"></zofar:preload>
+		<zofar:preload password="part3" name="part3"></zofar:preload>
+		<zofar:preload password="tester1" name="tester1"></zofar:preload>
+		<zofar:preload password="tester2" name="tester2"></zofar:preload>
+		<zofar:preload password="tester3" name="tester3"></zofar:preload>
+		<zofar:preload password="tester4" name="tester4"></zofar:preload>
+		<zofar:preload password="tester5" name="tester5"></zofar:preload>
+		<zofar:preload password="tester6" name="tester6"></zofar:preload>
+		<zofar:preload password="tester7" name="tester7"></zofar:preload>
+		<zofar:preload password="tester8" name="tester8"></zofar:preload>
+		<zofar:preload password="tester9" name="tester9"></zofar:preload>
+		<zofar:preload password="tester10" name="tester10"></zofar:preload>						
+	</zofar:preloads>
+
+
+
+
+	<zofar:variables>
+		<!-- index		 -->
+		<zofar:variable name="width" type="number"/>
+		<zofar:variable name="height" type="number"/>
+		<zofar:variable name="isMobile" type="boolean"/>
+		<zofar:variable name="jsCheck" type="boolean"/>
+		<zofar:variable name="url" type="string"/>
+		<zofar:variable name="flag_index" type="boolean"/>
+		<zofar:variable name="var01" type="singleChoiceAnswerOption"/>
+		<zofar:variable name="var02" type="singleChoiceAnswerOption"/>
+		<zofar:variable name="flag_A01" type="singleChoiceAnswerOption"/>
+		<zofar:variable name="var03a" type="string"/>
+		<zofar:variable name="var03b" type="string"/>
+		<zofar:variable name="var03c" type="string"/>
+		<zofar:variable name="var03d" type="string"/>
+		<zofar:variable name="var03e" type="string"/>
+		<zofar:variable name="var03f" type="string"/>
+		<zofar:variable name="var03g" type="string"/>
+		<zofar:variable name="var03h" type="string"/>
+		<zofar:variable name="var03i" type="string"/>
+		<zofar:variable name="var03j" type="string"/>
+		<zofar:variable name="var03k" type="string"/>
+		<!-- A03 -->
+		<zofar:variable name="var04" type="string"/>
+		<!-- A04 -->
+		<zofar:variable name="var05" type="singleChoiceAnswerOption"/>
+		<!-- A05 -->
+		<zofar:variable name="var06" type="string"/>
+	</zofar:variables>
+ 
+    <zofar:page uid="index">
+        <zofar:header>
+            <zofar:title uid="t1"></zofar:title>
+            <zofar:text uid="t2"></zofar:text>
+        </zofar:header>
+        <zofar:body uid="body">
+    		<zofar:questionSingleChoice uid="sc1">
+    			<zofar:header>
+    			</zofar:header>
+    			<zofar:responseDomain variable="var01" uid="rd">
+					<zofar:answerOption uid="ao1" value="1" label="Ja, ich habe die Hinweise zum Datenschutz (siehe verlinktes pdf) gelesen und bin damit einverstanden."/>
+					<zofar:answerOption uid="ao2" value="2" label="Nein, ich bin nicht einverstanden."/>
+    			</zofar:responseDomain>
+    		</zofar:questionSingleChoice>
+		</zofar:body>
+		<zofar:transitions>
+			<zofar:transition target="cancel1" condition="zofar.asNumber(var01) == 1"/>
+			<zofar:transition target="A01" condition="zofar.asNumber(var01) != 1" />
+		</zofar:transitions>
+   	</zofar:page>
+	
+	
+    <zofar:page uid="A01">
+		<zofar:body uid="b">
+    		<zofar:questionSingleChoice uid="sc1">
+    			<zofar:header>
+    			</zofar:header>
+    			<zofar:responseDomain variable="var02" uid="rd">
+					<zofar:answerOption uid="ao1" value="1" label="Ich tue nichts."/>
+					<zofar:answerOption uid="ao2" value="2" label="Ich tue viel."/>
+					<zofar:answerOption uid="ao3" value="3" label="Ich habe mal etwas getan."/>
+					<zofar:answerOption uid="ao4" value="4" label="Ich werde wieder etwas tun."/>
+    			</zofar:responseDomain>
+    		</zofar:questionSingleChoice>
+		</zofar:body>
+    	<zofar:transitions>
+			<zofar:transition target="A02" condition="zofar.asNumber(var02) == 3"/>
+			<zofar:transition target="A03" condition="zofar.asNumber(var02) != 3"/>
+    	</zofar:transitions>
+    </zofar:page>
+    
+
+	<zofar:page uid="A02">
+		<zofar:body uid="body">
+		</zofar:body>
+		<zofar:transitions>
+			<zofar:transition target="A04" condition="zofar.asNumber(var02) == 2"/>
+			<zofar:transition target="A05"/>
+		</zofar:transitions>
+	</zofar:page>
+
+	<zofar:page uid="A03">
+		<zofar:body uid="body">
+		</zofar:body>
+		<zofar:transitions>
+			<zofar:transition target="A06" />
+		</zofar:transitions>
+	</zofar:page>    
+    
+	<zofar:page uid="A04">
+		<zofar:body uid="body">
+			<zofar:questionSingleChoice uid="qsc1">
+				<zofar:responseDomain variable="var05" uid="rd" itemClasses="true">
+					<zofar:answerOption uid="ao1" value="1" label="Ja"/>
+					<zofar:answerOption uid="ao2" value="2" label="Nein"/>
+					<zofar:answerOption uid="ao3" value="3" label="Nein"/>
+					<zofar:answerOption uid="ao7" value="7" label="Nein"/>
+				</zofar:responseDomain>
+			</zofar:questionSingleChoice>
+		</zofar:body>
+		<zofar:transitions>
+			<zofar:transition target="A06" />
+		</zofar:transitions>
+	</zofar:page>
+    
+    
+	<zofar:page uid="A05">
+		<zofar:body uid="body">
+			<zofar:questionOpen variable="var06" uid="qopen1"
+								size="4" type="number"
+								validationMessage="Bitte geben Sie einen Wert zwischen 0 und 100 an."
+								minValue="0" maxValue="100"/>
+		</zofar:body>
+		<zofar:transitions>
+			<zofar:transition target="A06"/>
+		</zofar:transitions>
+	</zofar:page>
+    
+
+	<zofar:page uid="A06">
+		<zofar:body uid="body">
+			<zofar:questionOpen variable="var06" uid="qopen1"
+								size="4" type="number"
+								validationMessage="Bitte geben Sie einen Wert zwischen 0 und 100 an."
+								minValue="0" maxValue="100"/>
+		</zofar:body>
+		<zofar:transitions>
+			<zofar:transition target="end"/>
+		</zofar:transitions>
+	</zofar:page>
+
+	<zofar:page uid="cancel1">
+		<zofar:header>
+			<zofar:title uid="t" block="true">
+				Keine Zustimmung gegeben
+			</zofar:title>
+		</zofar:header>
+		<zofar:body uid="b">
+		</zofar:body>
+		<zofar:transitions>
+			<zofar:transition target="end"/>
+		</zofar:transitions>
+	</zofar:page>
+
+
+
+    <zofar:page uid="end">
+    	<zofar:header>
+    	</zofar:header>
+    	<zofar:body uid="b">
+    	</zofar:body>
+    </zofar:page>
+    
+</zofar:questionnaire>

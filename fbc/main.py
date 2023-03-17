@@ -1,14 +1,18 @@
+from pathlib import Path
+
 import networkx as nx
 from sympy import true, Symbol
-from fbc.eval import graph_soundness_check, Enum, construct_graph, evaluate_node_predicates
+from fbc.eval import graph_soundness_check, Enum, construct_graph, evaluate_node_predicates, in_degree_soundness_check
 from fbc.util import show_graph, draw_graph, flatten
 from fbc.data.xml import read_questionnaire, EnumValue
 import re
 from fbc.eval import bfs_nodes
 from sympy import simplify, true, false, Expr, Symbol, Eq, Ne, Not, Le, Lt, Ge, Gt, And, Or, Float, Integer
 from functools import reduce
+from fbc.util import timeit
 
 
+@timeit
 def main2():
     g = nx.DiGraph()
 
@@ -81,21 +85,25 @@ def tweak_label_strings(g: nx.DiGraph) -> nx.DiGraph:
     return h
 
 
-def main():
-    q = read_questionnaire("data/questionnaire.xml")
+def main(input_path: Path):
+    q = read_questionnaire(input_path)
+
+    # call construct graph() -> create graph & add filter attribute to edges
     g = construct_graph(q)
 
     nodes = bfs_nodes(g, source='index')
 
     processed_nodes = set()
 
+    in_degree_soundness_check(g)
+
     while len(nodes) != 0:
-        print(nodes)
+        print(f'{nodes=}')
         for v in nodes:
-            print(v)
-            print(len(nodes))
+            print(f'{v=}')
+            print(f'{len(nodes)=}')
             in_edges = [edge for edge in g.in_edges(v, data=True) if edge[0] != v]
-            print(in_edges)
+            print(f'{in_edges=}')
             print(f'{(len(in_edges) == 0)=}')
 
             x = str(all(['pred' in g.nodes[v_parent] for v_parent, _, _ in in_edges]))
@@ -114,7 +122,7 @@ def main():
                             for v_parent, v_child, data in in_edges]
 
                 # determine node predicate via conjunction of each `node predicate`-`edge filter` pair and
-                # disjunction of those results
+                # disjunction of th(ose results
                 node_pred = simplify(reduce(lambda res, p: res | (p[0] & p[1]), in_nodes, false))
                 g.nodes[v].update({"pred": node_pred})
                 processed_nodes.add(v)
@@ -138,12 +146,16 @@ def main():
     except AssertionError as err:
         raise AssertionError(err)
 
-    #evaluate_node_predicates(g, source='index', enums=enums)
+    # evaluate_node_predicates(g, source='index', enums=enums)
 
-    if g.nodes[8]['pred'] is not true:
-        raise ValueError(f"Graph evaluation failed: final node cannot be reached unless '{g.nodes[8]['pred']}'")
+    all_end_nodes = [u for u, n in g.out_degree if n == 0]
+
+    for u in all_end_nodes:
+        # ToDo
+        if [pred for v, pred in g.nodes(data=True) if v == u] is not true:
+            raise ValueError(f"Graph evaluation failed: final node cannot be reached unless '{g.nodes[8]['pred']}'")
 
 
 if __name__ == "__main__":
     # main2()
-    main()
+    main(Path('tests', 'context', 'questionnaire_simplified_enum_fail.xml'))

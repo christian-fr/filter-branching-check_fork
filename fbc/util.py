@@ -5,9 +5,23 @@ import io
 from pygraphviz.agraph import AGraph
 from typing import List, Any, Optional, Callable, Union, Dict, Tuple
 from contextlib import contextmanager
+from functools import wraps
 import time
 
 
+def timeit(func):
+    @wraps(func)
+    def timeit_wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        total_time = end_time - start_time
+        print(f'Function {func.__name__}{args} {kwargs} took {total_time:.4f} seconds')
+        return result
+    return timeit_wrapper
+
+
+@timeit
 def bfs_nodes(g: nx.Graph, source: Any) -> List[Any]:
     """
     Returns nodes in breadth first search order
@@ -19,6 +33,7 @@ def bfs_nodes(g: nx.Graph, source: Any) -> List[Any]:
     return [source] + [v for _, v in bfs_edges(g, source=source)]
 
 
+@timeit
 def to_agraph(g: nx.Graph) -> AGraph:
     """
     Converts an `nx.Graph` to an `pygraphviz.agraph.AGraph`
@@ -43,6 +58,7 @@ def to_agraph(g: nx.Graph) -> AGraph:
     return agraph
 
 
+@timeit
 def draw_graph(g: nx.Graph, *args, **kwargs) -> None:
     """
     Draw a nx.Graph to a file. Uses the signature of `pygraphviz.agraph.AGraph.draw`
@@ -78,7 +94,7 @@ def flatten(ll):
 
 
 def group_by(li: List[Tuple[str, Dict[str, Union[str, int, float]]]], key: Callable,
-             val: Optional[Callable] = None)\
+             val: Optional[Callable] = None) \
         -> Dict[Any, List[Any]]:
     """
 

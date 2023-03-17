@@ -4,7 +4,7 @@ import networkx as nx
 from functools import reduce, cached_property
 from typing import Any, List, Union, Dict
 
-from fbc.util import bfs_nodes, flatten, group_by
+from fbc.util import bfs_nodes, flatten, group_by, timeit
 from sympy import simplify, true, false, Expr, Symbol, Eq, Ne, Not, Le, Lt, Ge, Gt, And, Or, Float, Integer
 from sympy.core import evaluate as sympy_evaluate
 from sympy.logic.boolalg import Boolean
@@ -128,7 +128,20 @@ def evaluate_node_predicates(g: nx.DiGraph, source: Any, enums: List[Enum]) -> A
 
         nodes = [v for v in nodes if v not in processed_nodes]
 
+@timeit
+def in_degree_soundness_check(g: nx.DiGraph):
+    nodes_w_o_in_edges = [u for u, n in g.in_degree if n == 0]
+    try:
+        assert len(nodes_w_o_in_edges) <= 1
+    except AssertionError:
+        raise ValueError(f'found more than one start node (without in edges): {nodes_w_o_in_edges=}')
+    try:
+        assert len(nodes_w_o_in_edges) != 0
+    except AssertionError:
+        raise ValueError(f'no start node found (without in edges): {nodes_w_o_in_edges=}')
 
+
+@timeit
 def graph_soundness_check(g: nx.Graph, source: Any, enums: List[Enum], exception: bool = False) -> bool:
     """
     Checks whether the `soundness_check` applies to all nodes in the graph
@@ -158,9 +171,10 @@ def graph_soundness_check(g: nx.Graph, source: Any, enums: List[Enum], exception
     if not result02:
         raise ValueError(
             f'The following nodes do not pass soundness check (outgoing edges conditions): {nodes_that_failed_soundness_check}')
+
     return result
 
-
+@timeit
 def soundness_check(g: nx.Graph, v: Any, enums: List[Enum]) -> bool:
     """
     Checks whether the disjunction of all outbound edge filters of a node is True.
@@ -177,6 +191,7 @@ def soundness_check(g: nx.Graph, v: Any, enums: List[Enum]) -> bool:
         return True
 
 
+@timeit
 def simplify_enums(exp: Expr, enums: List[Enum]) -> Expr:
     """
     Simplifies given expression with regard to given enums. For each enum it is checked, if for all enum
