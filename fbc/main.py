@@ -1,3 +1,4 @@
+import traceback
 from pathlib import Path
 
 import networkx as nx
@@ -17,31 +18,40 @@ def main2():
     g = nx.DiGraph()
 
     p1 = Enum('p1', ['y', 'n'])
-    p2 = Enum('p2', ['y', 'n'])
+    p2 = Enum('p2', ['y', 'n', 'na'])
 
     g.add_nodes_from([1, 2, 3, 4, 5, 6, 7, 8])
-    g.add_edges_from([(1, 2, {"filter": p1.eq('n') & p2.eq('n')}),
+    g.add_edges_from([(1, 2, {"filter": p1.eq('n') & (p2.eq('n') | p2.eq('na'))}),
                       (1, 3, {"filter": p1.eq('n') & p2.eq('y')}),
-                      (1, 4, {"filter": p1.eq('y') & p2.eq('n')}),
-                      (1, 5, {"filter": p1.eq('y') & p2.eq('y')}),
+                      (1, 4, {"filter": p1.eq('y') & p2.eq('y')}),
+                      (1, 5, {"filter": p1.eq('y') & (p2.eq('n'))}),
                       (2, 6, {"filter": Symbol('x') >= 0}),
                       (2, 7, {"filter": Symbol('x') < 0}),
-                      (3, 8, {"filter": true}),
-                      (4, 8, {"filter": true}),
-                      (5, 8, {"filter": true}),
-                      (6, 8, {"filter": true}),
-                      (7, 8, {"filter": true})])
+                      (3, 9, {"filter": true}),
+                      (4, 8, {"filter": p1.eq('y')}),
+                      (4, 9, {"filter": p1.eq('n')}),
+                      (5, 9, {"filter": true}),
+                      (6, 9, {"filter": true}),
+                      (7, 9, {"filter": true})])
 
     draw_graph(g, 'graph_main2.png')
+    draw_graph(g, 'graph_main2.svg')
 
-    if not graph_soundness_check(g, source=1, enums=[p1, p2]):
-        raise ValueError("Soundness check failed")
+    try:
+        if not graph_soundness_check(g, source=1, enums=[p1, p2]):
+            raise ValueError("Soundness check failed")
+    except ValueError as e:
+        traceback.print_exc()
 
     evaluate_node_predicates(g, source=1, enums=[p1, p2])
 
-    if g.nodes[8]['pred'] is not true:
-        raise ValueError(f"Graph evaluation failed: final node cannot be reached unless '{g.nodes[8]['pred']}'")
+    try:
+        if g.nodes[8]['pred'] is not true:
+            raise ValueError(f"Graph evaluation failed: final node cannot be reached unless '{g.nodes[8]['pred']}'")
+    except ValueError as e:
+        traceback.print_exc()
 
+    draw_graph(g, 'graph_main2_pred.svg')
     show_graph(g)
 
 
@@ -148,14 +158,24 @@ def main(input_path: Path):
 
     # evaluate_node_predicates(g, source='index', enums=enums)
 
+    try:
+        assert end_nodes_soundness_check(g, enums=enums)
+    finally:
+        print()
+
     all_end_nodes = [u for u, n in g.out_degree if n == 0]
 
     for u in all_end_nodes:
-        # ToDo
-        if [pred for v, pred in g.nodes(data=True) if v == u] is not true:
-            raise ValueError(f"Graph evaluation failed: final node cannot be reached unless '{g.nodes[8]['pred']}'")
+        # ToDo: refactor into own function
+        for v, data in g.nodes(data=True):
+            if v == u:
+                if data['pred'] not in [true, True]:
+                    raise ValueError(f'Graph evaluation failed: final node "{v}" cannot be reached unless "{data["pred"]}"')
 
+# def end_nodes_soundness_check(g: nx.DiGraph, enums: )
 
 if __name__ == "__main__":
-    # main2()
-    main(Path('tests', 'context', 'questionnaire_simplified_enum_fail.xml'))
+    main2()
+    #main(Path('tests', 'context', 'questionnaire_simplified_enum.xml'))
+    main(Path('tests', 'context', 'questionnaire_simplified_enum_end_node_unreachable.xml'))
+    #main(Path('tests', 'context', 'questionnaire_simplified_enum_fail.xml'))

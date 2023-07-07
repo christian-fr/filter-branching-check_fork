@@ -128,6 +128,7 @@ def evaluate_node_predicates(g: nx.DiGraph, source: Any, enums: List[Enum]) -> A
 
         nodes = [v for v in nodes if v not in processed_nodes]
 
+
 @timeit
 def in_degree_soundness_check(g: nx.DiGraph):
     nodes_w_o_in_edges = [u for u, n in g.in_degree if n == 0]
@@ -173,6 +174,7 @@ def graph_soundness_check(g: nx.Graph, source: Any, enums: List[Enum], exception
             f'The following nodes do not pass soundness check (outgoing edges conditions): {nodes_that_failed_soundness_check}')
 
     return result
+
 
 @timeit
 def soundness_check(g: nx.Graph, v: Any, enums: List[Enum]) -> bool:
@@ -599,12 +601,12 @@ def type_check(lisp):
             raise ValueError(f"unexpected operator: '{op}'")
     elif isinstance(lisp, str):
         return 'string'
+    elif isinstance(lisp, bool):
+        return 'boolean'
     elif isinstance(lisp, int):
         return 'number'
     elif isinstance(lisp, float):
         return 'number'
-    elif isinstance(lisp, bool):
-        return 'boolean'
     else:
         raise ValueError("")
 
@@ -771,7 +773,16 @@ def construct_graph(q: xml.Questionnaire):
         neg_trans_filters = []
         for trans in page.transitions:
             if trans.condition is not None:
-                trans_filter = evaluator(trans.condition)
+                # ToDo: this is a way too hacky workaround; handling of condition == "true" or condition == "false"
+                #  should be implemented in evaluator() function
+                if trans.condition == 'false':
+                    continue
+                elif trans.condition == 'true':
+                    edges.append((page.uid, trans.target_uid, {'filter': true}))
+                    break
+                else:
+                    trans_filter = evaluator(trans.condition)
+
             else:
                 trans_filter = true
             excluding_trans_filter = simplify(And(*neg_trans_filters + [trans_filter]))
