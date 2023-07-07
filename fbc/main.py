@@ -13,26 +13,22 @@ from functools import reduce
 from fbc.util import timeit
 
 
-@timeit
+# @timeit
 def main2():
     g = nx.DiGraph()
 
     p1 = Enum('p1', ['y', 'n'])
     p2 = Enum('p2', ['y', 'n', 'na'])
 
-    g.add_nodes_from([1, 2, 3, 4, 5, 6, 7, 8])
+    g.add_nodes_from([1, 2, 3, 4, 5, 6])
     g.add_edges_from([(1, 2, {"filter": p1.eq('n') & (p2.eq('n') | p2.eq('na'))}),
                       (1, 3, {"filter": p1.eq('n') & p2.eq('y')}),
-                      (1, 4, {"filter": p1.eq('y') & p2.eq('y')}),
+                      (1, 4, {"filter": p1.eq('y') & (p2.eq('y') | p2.eq('na'))}),
                       (1, 5, {"filter": p1.eq('y') & (p2.eq('n'))}),
-                      (2, 6, {"filter": Symbol('x') >= 0}),
-                      (2, 7, {"filter": Symbol('x') < 0}),
-                      (3, 9, {"filter": true}),
-                      (4, 8, {"filter": p1.eq('y')}),
-                      (4, 9, {"filter": p1.eq('n')}),
-                      (5, 9, {"filter": true}),
-                      (6, 9, {"filter": true}),
-                      (7, 9, {"filter": true})])
+                      (2, 6, {"filter": true}),
+                      (3, 6, {"filter": true}),
+                      (4, 6, {"filter": true}),
+                      (5, 6, {"filter": true})])
 
     draw_graph(g, 'graph_main2.png')
     draw_graph(g, 'graph_main2.svg')
@@ -176,6 +172,6 @@ def main(input_path: Path):
 
 if __name__ == "__main__":
     main2()
-    #main(Path('tests', 'context', 'questionnaire_simplified_enum.xml'))
-    main(Path('tests', 'context', 'questionnaire_simplified_enum_end_node_unreachable.xml'))
+    main(Path('tests', 'context', 'questionnaire_simplified_enum.xml'))
+    #main(Path('tests', 'context', 'questionnaire_simplified_enum_end_node_unreachable.xml'))
     #main(Path('tests', 'context', 'questionnaire_simplified_enum_fail.xml'))

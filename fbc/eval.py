@@ -142,7 +142,7 @@ def in_degree_soundness_check(g: nx.DiGraph):
         raise ValueError(f'no start node found (without in edges): {nodes_w_o_in_edges=}')
 
 
-@timeit
+#@timeit
 def graph_soundness_check(g: nx.Graph, source: Any, enums: List[Enum], exception: bool = False) -> bool:
     """
     Checks whether the `soundness_check` applies to all nodes in the graph
@@ -176,7 +176,7 @@ def graph_soundness_check(g: nx.Graph, source: Any, enums: List[Enum], exception
     return result
 
 
-@timeit
+# @timeit
 def soundness_check(g: nx.Graph, v: Any, enums: List[Enum]) -> bool:
     """
     Checks whether the disjunction of all outbound edge filters of a node is True.
@@ -188,12 +188,15 @@ def soundness_check(g: nx.Graph, v: Any, enums: List[Enum]) -> bool:
     """
     out_predicates = [d['filter'] for d in g[v].values()]
     if len(out_predicates) != 0:
-        return simplify_enums(simplify(reduce(lambda a, b: a | b, out_predicates)), enums) == true
+        tmp_veroderte_predicates = reduce(lambda a, b: a | b, out_predicates) # Veroderung aller Ausdrücke in der Liste out_predicates
+        tmp_simplified_enums = simplify(tmp_veroderte_predicates)
+        tmp_further_simplified_enums = simplify_enums(tmp_simplified_enums, enums)
+        return tmp_further_simplified_enums == true
     else:
         return True
 
 
-@timeit
+# @timeit
 def simplify_enums(exp: Expr, enums: List[Enum]) -> Expr:
     """
     Simplifies given expression with regard to given enums. For each enum it is checked, if for all enum
@@ -207,12 +210,33 @@ def simplify_enums(exp: Expr, enums: List[Enum]) -> Expr:
         enum = enums[i]
         other_enums = enums[:i] + enums[i + 1:]
         # combined null substitution for all `other_enums`
-        null_subs = reduce(lambda a, b: {**a, **b.null_subs}, other_enums, {})
+
+        def _tmp_func(a, b):
+            result_a = {**a}
+            result_b = {**b.null_subs}
+            result = {**a, **b.null_subs}
+            return result
+
+        null_subs = reduce(_tmp_func, other_enums, {})
 
         tmp_list = []
+
+        # exp ist der boolsche Ausdruck an dem Knoten, den wir gerade betrachten (Veroderung der Bedingungen aller Ausgangskanten)
+        # "brute force"-Ansatz: es wird durch alle Werte (members) des gerade aktuellen Enums() iteriert
         for m in enum.members:
-            old_exp = exp.copy()
-            sub_dict = {**null_subs, **enum.subs(m)}
+            old_exp = exp.copy() # DEBUG
+
+            # wir "schalten" die aktuelle Enum() auf den Wert, den sie bei der aktuellen Iteration haben soll: bekommen zurück
+            #  ein dictionary aus "name": Literal (simpy Symbol)
+            tmp_enum_subs = enum.subs(m)
+            sub_dict = {**null_subs, **tmp_enum_subs}
+
+            # DEBUG zwei Probleme:
+            #  1) im dict "sub_dict" sind anscheinend die falschen Key-Datentypen: str statt simpy.core.symbol.Symbol()
+            #  2) im dict "sub_dict" sind anscheinend die falschen Namen für Symbols benutzt worden:
+            #         sub_dict -> {'p2': False, 'p2_y': False, 'p2_n': False, 'p1': LIT_p1_y}
+            #         exp      -> (Eq(LIT_p1_n, p1) & Eq(LIT_p2_n, p2)) | (Eq(LIT_p1_n, p1) & Eq(LIT_p2_y, p2)) | (Eq(LIT_p1_y, p1) & Eq(LIT_p2_n, p2)) | (Eq(LIT_p1_y, p1) & Eq(LIT_p2_y, p2))
+            #      dadurch wird effektiv nichts ersetzt, old_exp == new_exp und die Auflösung zu "True" gelingt nicht.
             new_exp = exp.subs(sub_dict)
             tmp_list.append(new_exp == true)
         if all(tmp_list):
