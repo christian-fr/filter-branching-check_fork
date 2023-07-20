@@ -123,7 +123,7 @@ class Test(TestCase):
         tmp_veroderte_predicates = reduce(lambda a, b: a | b,
                                           out_predicates)  # Veroderung aller Ausdrücke in der Liste out_predicates
         simplified_enums = simplify(tmp_veroderte_predicates)
-        # this should evaluate to true
+        # this should evaluate to false
         further_simplified_enums = brute_force_enums(simplified_enums, enums)
 
         self.assertEquals(False, all(further_simplified_enums))
@@ -153,7 +153,7 @@ class Test(TestCase):
         tmp_veroderte_predicates = reduce(lambda a, b: a | b,
                                           out_predicates)  # Veroderung aller Ausdrücke in der Liste out_predicates
         simplified_enums = simplify(tmp_veroderte_predicates)
-        # this should evaluate to true
+        # this should evaluate to false
         further_simplified_enums = brute_force_enums(simplified_enums, enums)
 
         self.assertEquals(False, all(further_simplified_enums))
