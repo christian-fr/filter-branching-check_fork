@@ -1,3 +1,4 @@
+import traceback
 from collections import defaultdict
 
 import networkx as nx
@@ -224,11 +225,12 @@ def simplify_enums(exp: Expr, enums: List[Enum]) -> Expr:
         # exp ist der boolsche Ausdruck an dem Knoten, den wir gerade betrachten (Veroderung der Bedingungen aller Ausgangskanten)
         # "brute force"-Ansatz: es wird durch alle Werte (members) des gerade aktuellen Enums() iteriert
         for m in enum.members:
-            old_exp = exp.copy() # DEBUG
+            exp_old = exp.copy() # DEBUG
 
             # wir "schalten" die aktuelle Enum() auf den Wert, den sie bei der aktuellen Iteration haben soll: bekommen zurück
             #  ein dictionary aus "name": Literal (simpy Symbol)
             tmp_enum_subs = enum.subs(m)
+
             sub_dict = {**null_subs, **tmp_enum_subs}
 
             # DEBUG zwei Probleme:
@@ -236,9 +238,9 @@ def simplify_enums(exp: Expr, enums: List[Enum]) -> Expr:
             #  2) im dict "sub_dict" sind anscheinend die falschen Namen für Symbols benutzt worden:
             #         sub_dict -> {'p2': False, 'p2_y': False, 'p2_n': False, 'p1': LIT_p1_y}
             #         exp      -> (Eq(LIT_p1_n, p1) & Eq(LIT_p2_n, p2)) | (Eq(LIT_p1_n, p1) & Eq(LIT_p2_y, p2)) | (Eq(LIT_p1_y, p1) & Eq(LIT_p2_n, p2)) | (Eq(LIT_p1_y, p1) & Eq(LIT_p2_y, p2))
-            #      dadurch wird effektiv nichts ersetzt, old_exp == new_exp und die Auflösung zu "True" gelingt nicht.
-            new_exp = exp.subs(sub_dict)
-            tmp_list.append(new_exp == true)
+            #      dadurch wird effektiv nichts ersetzt, exp_old == exp_new und die Auflösung zu "True" gelingt nicht.
+            exp_new = exp.subs(sub_dict)
+            tmp_list.append(exp_new == true)
         if all(tmp_list):
             exp = exp.subs(enum.null_subs)
 
