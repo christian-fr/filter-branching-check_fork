@@ -56,6 +56,9 @@ class Enum:
         """
         return {**{self.name: false}, **{f"{self.name}_{m}": false for m in self.member_vars}}
 
+    def get_other_member_vars(self, m) -> List[Symbol]:
+        return [self.member_vars[k] for k in [n for n in self.members if n != m]]
+
     def eq(self, m):
         """
         Returns predicate checking if the enum variable is equal to the given member
@@ -76,6 +79,17 @@ class Enum:
 
     def __iter__(self):
         return iter(self.members)
+
+    @property
+    def subs_dicts(self):
+        result = []
+        for m in self.members:
+            tmp_dict = {}
+            tmp_dict[Eq(self.member_vars[m], self.var)] = true
+            for o in self.get_other_member_vars(m):
+                tmp_dict[Eq(o, self.var)] = false
+            result.append(tmp_dict)
+        return result
 
 
 # duplicate of better implementation in main.main()
@@ -119,7 +133,8 @@ def evaluate_node_predicates(g: nx.DiGraph, source: Any, enums: List[Enum]) -> A
 
                 # determine node predicate via conjunction of each `node predicate`-`edge filter` pair and
                 # disjunction of those results
-                node_pred = simplify_enums(simplify(reduce(lambda res, p: res | (p[0] & p[1]), in_nodes, false)), enums)
+                node_pred = brute_force_enums(simplify(reduce(lambda res, p: res | (p[0] & p[1]), in_nodes, false)),
+                                              enums)
                 g.nodes[v].update({"pred": node_pred})
 
                 processed_nodes.add(v)
@@ -143,7 +158,7 @@ def in_degree_soundness_check(g: nx.DiGraph):
         raise ValueError(f'no start node found (without in edges): {nodes_w_o_in_edges=}')
 
 
-#@timeit
+# @timeit
 def graph_soundness_check(g: nx.Graph, source: Any, enums: List[Enum], exception: bool = False) -> bool:
     """
     Checks whether the `soundness_check` applies to all nodes in the graph
@@ -189,65 +204,38 @@ def soundness_check(g: nx.Graph, v: Any, enums: List[Enum]) -> bool:
     """
     out_predicates = [d['filter'] for d in g[v].values()]
     if len(out_predicates) != 0:
-        tmp_veroderte_predicates = reduce(lambda a, b: a | b, out_predicates) # Veroderung aller Ausdrücke in der Liste out_predicates
+        tmp_veroderte_predicates = reduce(lambda a, b: a | b,
+                                          out_predicates)  # Veroderung aller Ausdrücke in der Liste out_predicates
         tmp_simplified_enums = simplify(tmp_veroderte_predicates)
-        tmp_further_simplified_enums = simplify_enums(tmp_simplified_enums, enums)
-        return tmp_further_simplified_enums == true
+        tmp_further_simplified_enums = brute_force_enums(tmp_simplified_enums, enums)
+        return all(tmp_further_simplified_enums) == True
     else:
         return True
 
 
 # @timeit
-def simplify_enums(exp: Expr, enums: List[Enum]) -> Expr:
+def brute_force_enums(exp: Expr, enums: List[Enum]) -> List[Expr]:
     """
-    Simplifies given expression with regard to given enums. For each enum it is checked, if for all enum
-    members the expression becomes true. In this case this enum is removed from the expression
+    Brute Force aller Permutationen/Kombinationsmöglichkeiten der gegebenen Enums
 
     :param exp: expression
     :param enums: list of enumerations regarded during evaluation
-    :return: simplified expression
+    :return: list of substituted / simplified expression
     """
-    for i in range(len(enums)):
-        enum = enums[i]
-        other_enums = enums[:i] + enums[i + 1:]
-        # combined null substitution for all `other_enums`
 
-        def _tmp_func(a, b):
-            result_a = {**a}
-            result_b = {**b.null_subs}
-            result = {**a, **b.null_subs}
-            return result
+    from collections import ChainMap
+    from itertools import product
+    all_subs_dicts = [e.subs_dicts for e in enums]
+    all_permutations = [p for p in product(*all_subs_dicts)]
 
-        null_subs = reduce(_tmp_func, other_enums, {})
-
-        tmp_list = []
-
-        # exp ist der boolsche Ausdruck an dem Knoten, den wir gerade betrachten (Veroderung der Bedingungen aller Ausgangskanten)
-        # "brute force"-Ansatz: es wird durch alle Werte (members) des gerade aktuellen Enums() iteriert
-        for m in enum.members:
-            exp_old = exp.copy() # DEBUG
-
-            # wir "schalten" die aktuelle Enum() auf den Wert, den sie bei der aktuellen Iteration haben soll: bekommen zurück
-            #  ein dictionary aus "name": Literal (simpy Symbol)
-            tmp_enum_subs = enum.subs(m)
-
-            sub_dict = {**null_subs, **tmp_enum_subs}
-
-            # DEBUG zwei Probleme:
-            #  1) im dict "sub_dict" sind anscheinend die falschen Key-Datentypen: str statt simpy.core.symbol.Symbol()
-            #  2) im dict "sub_dict" sind anscheinend die falschen Namen für Symbols benutzt worden:
-            #         sub_dict -> {'p2': False, 'p2_y': False, 'p2_n': False, 'p1': LIT_p1_y}
-            #         exp      -> (Eq(LIT_p1_n, p1) & Eq(LIT_p2_n, p2)) | (Eq(LIT_p1_n, p1) & Eq(LIT_p2_y, p2)) | (Eq(LIT_p1_y, p1) & Eq(LIT_p2_n, p2)) | (Eq(LIT_p1_y, p1) & Eq(LIT_p2_y, p2))
-            #      dadurch wird effektiv nichts ersetzt, exp_old == exp_new und die Auflösung zu "True" gelingt nicht.
-            exp_new = exp.subs(sub_dict)
-            tmp_list.append(exp_new == true)
-        if all(tmp_list):
-            exp = exp.subs(enum.null_subs)
-
-        ###if all([exp.subs({**null_subs, **enum.subs(m)}) == true for m in enum.members]):
-        ###    exp = exp.subs(enum.null_subs)
-
-    return exp
+    result = []
+    for permutation in all_permutations:
+        subs_dict = {}
+        for e in permutation:
+            subs_dict.update(e)
+        exp_new = exp.subs(subs_dict)
+        result.append(exp_new)
+    return result
 
 
 primitive_types = {int, str, bool, float}
