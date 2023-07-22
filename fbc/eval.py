@@ -1,4 +1,3 @@
-import traceback
 from collections import defaultdict
 
 import networkx as nx
@@ -8,7 +7,7 @@ from typing import Any, List, Union, Dict
 from fbc.util import bfs_nodes, flatten, group_by, timeit
 from sympy import simplify, true, false, Expr, Symbol, Eq, Ne, Not, Le, Lt, Ge, Gt, And, Or, Float, Integer
 from sympy.core import evaluate as sympy_evaluate
-from sympy.logic.boolalg import Boolean
+from sympy.logic.boolalg import Boolean, to_dnf
 from fbc.data import xml
 from fbc.data.parse import LispParser
 
@@ -159,7 +158,7 @@ def in_degree_soundness_check(g: nx.DiGraph):
 
 
 # @timeit
-def graph_soundness_check(g: nx.Graph, source: Any, enums: List[Enum], exception: bool = False) -> bool:
+def graph_soundness_check(g: nx.Graph, source: Any, enums: List[Enum]) -> bool:
     """
     Checks whether the `soundness_check` applies to all nodes in the graph
 
@@ -169,17 +168,16 @@ def graph_soundness_check(g: nx.Graph, source: Any, enums: List[Enum], exception
     @param g:
     @param source:
     @param enums:
-    @param exception:
     @return: True, if the `soundness_check` applies to all nodes in the graph
 
     """
-    soundness_check_results = [soundness_check(g, v, enums) for v in bfs_nodes(g, source)]
+    soundness_check_results = [soundness_check(g, v, enums, true) for v in bfs_nodes(g, source)]
     result = all(soundness_check_results)
 
     soundness_check_results_02 = []
     soundness_check_nodes_02 = []
     for v in bfs_nodes(g, source):
-        soundness_check_results_02.append(soundness_check(g, v, enums))
+        soundness_check_results_02.append(soundness_check(g, v, enums, true))
         soundness_check_nodes_02.append(v)
 
     result02 = all(soundness_check_results_02)
@@ -193,13 +191,14 @@ def graph_soundness_check(g: nx.Graph, source: Any, enums: List[Enum], exception
 
 
 # @timeit
-def soundness_check(g: nx.Graph, v: Any, enums: List[Enum]) -> bool:
+def soundness_check(g: nx.Graph, v: Any, enums: List[Enum], in_exp: Expr) -> bool:
     """
     Checks whether the disjunction of all outbound edge filters of a node is True.
 
-    :param g: graph
-    :param v: node to evaluate
-    :param enums: list of enumerations regarded during evaluation
+    @param g: graph
+    @param v: node to evaluate
+    @param enums: list of enumerations regarded during evaluation
+    @param in_exp: expression to evaluate against
     :return: True, if the disjunction of all outbound edge filters of the node is True
     """
     out_predicates = [d['filter'] for d in g[v].values()]
@@ -207,8 +206,31 @@ def soundness_check(g: nx.Graph, v: Any, enums: List[Enum]) -> bool:
         tmp_veroderte_predicates = reduce(lambda a, b: a | b,
                                           out_predicates)  # Veroderung aller Ausdrücke in der Liste out_predicates
         tmp_simplified_enums = simplify(tmp_veroderte_predicates)
+
         tmp_further_simplified_enums = brute_force_enums(tmp_simplified_enums, enums)
-        return all(tmp_further_simplified_enums) == True
+
+        return all([exp == in_exp for exp in tmp_further_simplified_enums])
+    else:
+        return True
+
+
+# @timeit
+def disjointness_check(g: nx.Graph, v: Any, enums: List[Enum]) -> bool:
+    """
+    Checks whether the conditions of all outbound edge filters of a node are truly disjoint.
+
+    @param g: graph
+    @param v: node to evaluate
+    @param enums: list of enumerations regarded during evaluation
+    :return: True, if the disjunction of all outbound edge filters of the node is True
+    """
+    out_predicates = [d['filter'] for d in g[v].values()]
+    if len(out_predicates) != 0:
+        truth_table_list = []
+        for edge_condition in out_predicates:
+            tmp = to_dnf(edge_condition, enums)
+            truth_table_list.append(tmp)
+        return not any([True for e in truth_table_list if truth_table_list.count(e) > 1])
     else:
         return True
 
@@ -223,7 +245,30 @@ def brute_force_enums(exp: Expr, enums: List[Enum]) -> List[Expr]:
     :return: list of substituted / simplified expression
     """
 
-    from collections import ChainMap
+    from itertools import product
+    all_subs_dicts = [e.subs_dicts for e in enums]
+    all_permutations = [p for p in product(*all_subs_dicts)]
+
+    result = []
+    for permutation in all_permutations:
+        subs_dict = {}
+        for e in permutation:
+            subs_dict.update(e)
+        exp_new = exp.subs(subs_dict)
+        result.append(exp_new)
+    return result
+
+
+# @timeit
+def truth_table_brute_force_enums(exp: Expr, enums: List[Enum]) -> List[List[bool]]:
+    """
+    Brute Force aller Permutationen/Kombinationsmöglichkeiten der gegebenen Enums
+
+    :param exp: expression
+    :param enums: list of enumerations regarded during evaluation
+    :return: list of substituted / simplified expression
+    """
+
     from itertools import product
     all_subs_dicts = [e.subs_dicts for e in enums]
     all_permutations = [p for p in product(*all_subs_dicts)]
@@ -699,7 +744,7 @@ def enum_dict(pages: List[xml.Page]):
                     else:
                         try:
                             assert valid_enum_map_groups[c][ao] == val
-                        except AssertionError as err:
+                        except AssertionError:
                             raise AssertionError(f'different ao uid / value combinations found: {c}: {cgs}')
 
     # invalid_enum_map_groups = [(c, cgs) for c, cgs in enum_map_groups.items() if isinstance(cgs, list)]

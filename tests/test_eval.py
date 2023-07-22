@@ -1,12 +1,12 @@
 from functools import reduce
 from unittest import TestCase
 
-from sympy import simplify
+from sympy import simplify, true
 
-from fbc.eval import soundness_check, brute_force_enums
+from fbc.eval import soundness_check, brute_force_enums, disjointness_check
 from fbc.util import draw_graph
 from tests.context.graphs import get_inconsistent_graph_01, get_inconsistent_graph_02, get_consistent_graph_01, \
-    get_consistent_graph_02, get_consistent_graph_03, get_inconsistent_graph_03
+    get_consistent_graph_02, get_consistent_graph_03, get_inconsistent_graph_03, get_inconsistent_graph_02a
 
 
 class Test(TestCase):
@@ -16,7 +16,7 @@ class Test(TestCase):
         """
         g, p1, p2 = get_consistent_graph_01()
 
-        result = all([soundness_check(g, v, enums=[p1, p2]) for v in g.nodes])
+        result = all([soundness_check(g, v, enums=[p1, p2], in_exp=true) for v in g.nodes])
         # wir erwarten ein result == True, weil: für Knoten 1 sind alle möglichen Kombination in den Ausgangskanten
         #  abgedeckt
         self.assertTrue(result)
@@ -27,7 +27,7 @@ class Test(TestCase):
         """
         g, p1, p2 = get_inconsistent_graph_01()
 
-        result = all([soundness_check(g, v, enums=[p1, p2]) for v in g.nodes])
+        result = all([soundness_check(g, v, enums=[p1, p2], in_exp=true) for v in g.nodes])
         # wir erwarten ein result == False, weil: es gibt keinen Ausgangskanten von Knoten 1 für die
         #  Kombination p1=='y' & p2=='y'
         self.assertFalse(result)
@@ -37,10 +37,11 @@ class Test(TestCase):
         """
         Testcase for soundness check (consistency of outgoing edges)
         """
-        g, p1, p2 = get_consistent_graph_03()
+        # get a consistent graph with branches
+        g, p1 = get_consistent_graph_03()
         draw_graph(g, "test_graph_soundness_check_03.png")
         exit()
-        result = all([soundness_check(g, v, enums=[p1, p2]) for v in g.nodes])
+        result = all([soundness_check(g, v, enums=[p1, p2], in_exp=expression) for v in g.nodes])
         # wir erwarten ein result == False, weil: es gibt keinen Ausgangskanten von Knoten 1 für die
         #  Kombination p1=='y' & p2=='y'
         self.assertFalse(result)
@@ -59,7 +60,7 @@ class Test(TestCase):
         # this should evaluate to true
         further_simplified_enums = brute_force_enums(simplified_enums, enums)
 
-        self.assertEquals(True, all(further_simplified_enums))
+        self.assertEqual(True, all(further_simplified_enums))
 
     def test_brute_force_enums_02(self):
         g, p1, p2 = get_inconsistent_graph_01()
@@ -74,7 +75,7 @@ class Test(TestCase):
         # this should evaluate to false
         further_simplified_enums = brute_force_enums(simplified_enums, enums)
 
-        self.assertEquals(False, all(further_simplified_enums))
+        self.assertEqual(False, all(further_simplified_enums))
 
     def test_brute_force_enums_03(self):
         g, p1, p2 = get_consistent_graph_02()
@@ -104,4 +105,15 @@ class Test(TestCase):
         # this should evaluate to false
         further_simplified_enums = brute_force_enums(simplified_enums, enums)
 
-        self.assertEquals(False, all(further_simplified_enums))
+        self.assertEqual(False, all(further_simplified_enums))
+
+    def test_disjointness_check(self):
+        """
+        Testcase for disjointness check (true disjointness of outgoing edges)
+        """
+        g, p1, p2 = get_inconsistent_graph_02a()
+
+        tmp_disjointness_result = [disjointness_check(g, v, enums=[p1, p2]) for v in g.nodes]
+        result = all(tmp_disjointness_result)
+        # wir erwarten ein result == false, weil es eine Condition auf node 1 doppelt gibt
+        self.assertFalse(result)
