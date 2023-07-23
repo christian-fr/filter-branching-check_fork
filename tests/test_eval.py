@@ -109,7 +109,7 @@ class Test(TestCase):
 
     def test_disjointness_check_01(self):
         """
-        Testcase for disjointness check (true disjointness of outgoing edges)
+        Testcase for disjointness check (true disjointness of outgoing edges) - should fail
         """
         g, p1, p2 = get_inconsistent_graph_02a()
 
@@ -121,7 +121,7 @@ class Test(TestCase):
 
     def test_disjointness_check_02(self):
         """
-        Testcase for disjointness check (true disjointness of outgoing edges)
+        Testcase for disjointness check (true disjointness of outgoing edges) - should pass
         """
         g, p1, p2 = get_consistent_graph_02()
 
