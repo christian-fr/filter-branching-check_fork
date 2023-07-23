@@ -40,7 +40,7 @@ class Test(TestCase):
         """
         # get a consistent graph with branches
         g, p1 = get_consistent_graph_03()
-        draw_graph(g, "test_graph_soundness_check_03.png")
+        # draw_graph(g, "test_graph_soundness_check_03.png")
         exit()
         # ToDo: this needs to be fully implemented & fixed.
         #  BFS tree traversal, inheritance of predicates -> filter conditions, etc.
@@ -135,19 +135,19 @@ class Test(TestCase):
     def test_evaluate_node_predicates_01(self):
         g, p1 = get_consistent_graph_03()
 
-        draw_graph(g, "test_evaluate_node_predicates_01.png")
+        #draw_graph(g, "test_evaluate_node_predicates_01.png")
         g = evaluate_node_predicates(g, 1, [p1])
-        draw_graph(g, 'test_evaluate_node_predicates_01_predicates.png')
+        #draw_graph(g, 'test_evaluate_node_predicates_01_predicates.png')
         self.fail()
 
     def test_evaluate_node_predicates_02(self):
         g, p1 = get_inconsistent_graph_03()
 
-        draw_graph(g, "test_evaluate_node_predicates_02.png")
+        #draw_graph(g, "test_evaluate_node_predicates_02.png")
         g = evaluate_node_predicates(g, 1, [p1])
-        draw_graph(g, 'test_evaluate_node_predicates_02_predicates.png')
+        #draw_graph(g, 'test_evaluate_node_predicates_02_predicates.png')
         g = evaluate_edge_filters(g, [p1])
-        draw_graph(g, 'test_evaluate_node_predicates_02_filters.png')
+        #draw_graph(g, 'test_evaluate_node_predicates_02_filters.png')
 
 
 
