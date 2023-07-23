@@ -2,12 +2,12 @@ from collections import defaultdict
 
 import networkx as nx
 from functools import reduce, cached_property
-from typing import Any, List, Union, Dict
+from typing import Any, List, Union, Dict, Tuple
 
 from fbc.util import bfs_nodes, flatten, group_by, timeit
-from sympy import simplify, true, false, Expr, Symbol, Eq, Ne, Not, Le, Lt, Ge, Gt, And, Or, Float, Integer
+from sympy import simplify, true, false, Expr, Symbol, Eq, Ne, Not, Le, Lt, Ge, Gt, And, Or, Float, Integer, Basic
 from sympy.core import evaluate as sympy_evaluate
-from sympy.logic.boolalg import Boolean, to_dnf
+from sympy.logic.boolalg import Boolean, to_dnf, BooleanTrue, BooleanAtom
 from fbc.data import xml
 from fbc.data.parse import LispParser
 
@@ -86,7 +86,7 @@ class Enum:
             tmp_dict = {}
             tmp_dict[Eq(self.member_vars[m], self.var)] = true
             for o in self.get_other_member_vars(m):
-                tmp_dict[Eq(o, self.var)] = false
+                tmp_dict[Eq(self.var, o)] = false
             result.append(tmp_dict)
         return result
 
@@ -146,6 +146,8 @@ def evaluate_node_predicates(g: nx.DiGraph, source: Any, enums: List[Enum]) -> A
 
 @timeit
 def in_degree_soundness_check(g: nx.DiGraph):
+    # ToDo: check whether this is still an appropriate check regarding the consistency conditions discussed in
+    #  the paper!
     nodes_w_o_in_edges = [u for u, n in g.in_degree if n == 0]
     try:
         assert len(nodes_w_o_in_edges) <= 1
@@ -171,6 +173,8 @@ def graph_soundness_check(g: nx.Graph, source: Any, enums: List[Enum]) -> bool:
     @return: True, if the `soundness_check` applies to all nodes in the graph
 
     """
+    # ToDo: check whether this is still an appropriate check regarding the consistency conditions discussed in
+    #  the paper!
     soundness_check_results = [soundness_check(g, v, enums, true) for v in bfs_nodes(g, source)]
     result = all(soundness_check_results)
 
@@ -201,6 +205,9 @@ def soundness_check(g: nx.Graph, v: Any, enums: List[Enum], in_exp: Expr) -> boo
     @param in_exp: expression to evaluate against
     :return: True, if the disjunction of all outbound edge filters of the node is True
     """
+    # ToDo: check whether this is still an appropriate check regarding the consistency conditions discussed in
+    #  the paper!
+
     out_predicates = [d['filter'] for d in g[v].values()]
     if len(out_predicates) != 0:
         tmp_veroderte_predicates = reduce(lambda a, b: a | b,
@@ -225,14 +232,17 @@ def disjointness_check(g: nx.Graph, v: Any, enums: List[Enum]) -> bool:
     :return: True, if the disjunction of all outbound edge filters of the node is True
     """
     out_predicates = [d['filter'] for d in g[v].values()]
-    if len(out_predicates) != 0:
-        truth_table_list = []
-        for edge_condition in out_predicates:
-            tmp = to_dnf(edge_condition, enums)
-            truth_table_list.append(tmp)
-        return not any([True for e in truth_table_list if truth_table_list.count(e) > 1])
-    else:
-        return True
+    # Was passiert hier?
+    # die Bedingungen für alle ausgehenden Kanten werden durchiteriert
+    # ToDo: relevante Enums filtern; Kriterium: Enums oder Enum values tauchen als Symbol in IRGENDEINEM der
+    #  out_predicates auf!
+    truth_tables = []
+    for out_predicate in out_predicates:
+        # wir lassen uns für jede Kante eine Truth Table für die gleichen, auf diesem Knoten relevanten Enums
+        #  ausgeben -> wir vergleichen die Truth Tables auf Identität
+        #  Ratio dahinter: wenn identische Truth Tables, dann nicht "truly disjoint"!
+        truth_tables.append(truth_table_brute_force_enums(out_predicate, enums))
+    return not any([t for t in truth_tables if truth_tables.count(t) > 1])
 
 
 # @timeit
@@ -254,13 +264,15 @@ def brute_force_enums(exp: Expr, enums: List[Enum]) -> List[Expr]:
         subs_dict = {}
         for e in permutation:
             subs_dict.update(e)
+            eq_reverse_order_subs_dict = {Eq(*k.args[::-1]): v for k, v in subs_dict.items() if isinstance(k, Eq)}
+            subs_dict.update(eq_reverse_order_subs_dict)
         exp_new = exp.subs(subs_dict)
         result.append(exp_new)
     return result
 
 
 # @timeit
-def truth_table_brute_force_enums(exp: Expr, enums: List[Enum]) -> List[List[bool]]:
+def truth_table_brute_force_enums(exp: Expr, enums: List[Enum]) -> List[Tuple[Basic, Basic]]:
     """
     Brute Force aller Permutationen/Kombinationsmöglichkeiten der gegebenen Enums
 
@@ -268,18 +280,28 @@ def truth_table_brute_force_enums(exp: Expr, enums: List[Enum]) -> List[List[boo
     :param enums: list of enumerations regarded during evaluation
     :return: list of substituted / simplified expression
     """
-
+    # ToDo: clean up the code!
+    # ToDo: maybe implement this to brute_force?
     from itertools import product
-    all_subs_dicts = [e.subs_dicts for e in enums]
-    all_permutations = [p for p in product(*all_subs_dicts)]
+    # all_subs_dicts = [e.subs_dicts for e in enums]
+    all_subs_tuples = [[[(k, v) for k, v in d.items()] for d in e.subs_dicts] for e in enums]
+    y = [p for p in all_subs_tuples]
+    subs_tuples = [flatten(p) for p in product(*all_subs_tuples)]
+    tmp_eq_expr = [[Eq(e[0], e[1]) for e in d] for d in subs_tuples]
+    tmp_expr = [to_dnf(reduce(lambda a, b: a & b, e)) for e in tmp_eq_expr]
 
     result = []
-    for permutation in all_permutations:
+    for expr in tmp_expr:
+        assert isinstance(expr, And)
         subs_dict = {}
-        for e in permutation:
-            subs_dict.update(e)
+        for arg in expr.args:
+            assert isinstance(arg, Eq)
+            assert isinstance(arg.args[1], BooleanAtom)
+            subs_dict[arg.args[0]] = arg.args[1]
+
         exp_new = exp.subs(subs_dict)
-        result.append(exp_new)
+        result.append((expr, exp_new))
+
     return result
 
 
