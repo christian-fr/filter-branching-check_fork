@@ -3,7 +3,8 @@ from unittest import TestCase
 
 from sympy import simplify, true
 
-from fbc.eval import soundness_check, brute_force_enums, disjointness_check
+from fbc.eval import soundness_check, brute_force_enums, disjointness_check, evaluate_node_predicates, \
+    evaluate_edge_filters
 from fbc.util import draw_graph
 from tests.context.graphs import get_inconsistent_graph_01, get_inconsistent_graph_02, get_consistent_graph_01, \
     get_consistent_graph_02, get_consistent_graph_03, get_inconsistent_graph_03, get_inconsistent_graph_02a
@@ -130,3 +131,24 @@ class Test(TestCase):
         # wir erwarten ein result == true
         self.assertTrue(result)
         # ToDo: It needs to be checked whether this actually covers the consistency conditions discussed in the paper!
+
+    def test_evaluate_node_predicates_01(self):
+        g, p1 = get_consistent_graph_03()
+
+        draw_graph(g, "test_evaluate_node_predicates_01.png")
+        g = evaluate_node_predicates(g, 1, [p1])
+        draw_graph(g, 'test_evaluate_node_predicates_01_predicates.png')
+        self.fail()
+
+    def test_evaluate_node_predicates_02(self):
+        g, p1 = get_inconsistent_graph_03()
+
+        draw_graph(g, "test_evaluate_node_predicates_02.png")
+        g = evaluate_node_predicates(g, 1, [p1])
+        draw_graph(g, 'test_evaluate_node_predicates_02_predicates.png')
+        g = evaluate_edge_filters(g, [p1])
+        draw_graph(g, 'test_evaluate_node_predicates_02_filters.png')
+
+
+
+        self.fail()

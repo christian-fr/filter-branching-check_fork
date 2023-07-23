@@ -1,8 +1,8 @@
 from collections import defaultdict
 
 import networkx as nx
-from functools import reduce, cached_property
-from typing import Any, List, Union, Dict, Tuple
+from functools import reduce, cached_property, lru_cache
+from typing import Any, List, Union, Dict, Tuple, Optional
 
 from fbc.util import bfs_nodes, flatten, group_by, timeit
 from sympy import simplify, true, false, Expr, Symbol, Eq, Ne, Not, Le, Lt, Ge, Gt, And, Or, Float, Integer, Basic
@@ -10,6 +10,11 @@ from sympy.core import evaluate as sympy_evaluate
 from sympy.logic.boolalg import Boolean, to_dnf, BooleanTrue, BooleanAtom
 from fbc.data import xml
 from fbc.data.parse import LispParser
+
+
+@lru_cache(maxsize=None)
+def simplify_cached(*args, **kwargs) -> Any:
+    return simplify(*args, **kwargs)
 
 
 class Enum:
@@ -65,7 +70,7 @@ class Enum:
         :param m: member
         :return: predicate
         """
-        return simplify(Eq(self.var, self.member_vars[m]))
+        return simplify_cached(Eq(self.var, self.member_vars[m]))
 
     def __str__(self):
         return f"{self.name}({[m for m in self.member_vars.keys()]})"
@@ -83,15 +88,15 @@ class Enum:
     def subs_dicts(self):
         result = []
         for m in self.members:
-            tmp_dict = {simplify(Eq(self.member_vars[m], self.var)): true}
+            tmp_dict = {simplify_cached(Eq(self.member_vars[m], self.var)): true}
             for o in self.get_other_member_vars(m):
-                tmp_dict[simplify(Eq(self.var, o))] = false
+                tmp_dict[simplify_cached(Eq(self.var, o))] = false
             result.append(tmp_dict)
         return result
 
 
 # duplicate of better implementation in main.main()
-def evaluate_node_predicates(g: nx.DiGraph, source: Any, enums: List[Enum]) -> Any:
+def evaluate_node_predicates(g: nx.DiGraph, source: Any, enums: List[Enum]) -> nx.DiGraph:
     """
     Evaluates all node predicates in `g` reachable from `source` node. As a result each node will contain a 'pred'
     attribute containing the condition to be fulfilled in order to reach the respective node.
@@ -131,8 +136,12 @@ def evaluate_node_predicates(g: nx.DiGraph, source: Any, enums: List[Enum]) -> A
 
                 # determine node predicate via conjunction of each `node predicate`-`edge filter` pair and
                 # disjunction of those results
-                node_pred = brute_force_enums(simplify(reduce(lambda res, p: res | (p[0] & p[1]), in_nodes, false)),
-                                              enums)
+                node_pred = simplify_enums(simplify_cached(reduce(lambda res, p: res | (p[0] & p[1]), in_nodes, false)),
+                                           enums)
+                if all(brute_force_enums(node_pred, enums)):
+                    node_pred = true
+                elif not any(brute_force_enums(node_pred, enums)):
+                    node_pred = false
                 g.nodes[v].update({"pred": node_pred})
 
                 processed_nodes.add(v)
@@ -141,6 +150,27 @@ def evaluate_node_predicates(g: nx.DiGraph, source: Any, enums: List[Enum]) -> A
             raise ValueError("Could not process in evaluating node predicates")
 
         nodes = [v for v in nodes if v not in processed_nodes]
+    return g
+
+
+def evaluate_edge_filters(g: nx.DiGraph, enums: List[Enum]) -> nx.DiGraph:
+    """
+    :param g: graph
+    :param source: node to start from
+    :param enums: list of enumerations regarded during evaluation
+    """
+    edges = [(u, v, f['filter']) for u, v, f in g.edges(data=True)]
+    nodes = {v: p['pred'] for v, p in g.nodes(data=True)}
+    for u, v, f in edges:
+        source_node_predicate = nodes[u]
+        f_new = source_node_predicate & f
+        f_simplified = simplify_cached(f_new)
+        if all(brute_force_enums(f_simplified, enums)):
+            f_simplified = true
+        elif not any(brute_force_enums(f_simplified, enums)):
+            f_simplified = false
+        g.edges[(u, v)].update({'filter': f_simplified})
+    return g
 
 
 @timeit
@@ -211,7 +241,7 @@ def soundness_check(g: nx.Graph, v: Any, enums: List[Enum], in_exp: Expr) -> boo
     if len(out_predicates) != 0:
         tmp_veroderte_predicates = reduce(lambda a, b: a | b,
                                           out_predicates)  # Veroderung aller Ausdrücke in der Liste out_predicates
-        tmp_simplified_enums = simplify(tmp_veroderte_predicates)
+        tmp_simplified_enums = simplify_enums(tmp_veroderte_predicates)
 
         tmp_further_simplified_enums = brute_force_enums(tmp_simplified_enums, enums)
 
@@ -245,12 +275,35 @@ def disjointness_check(g: nx.Graph, v: Any, enums: List[Enum]) -> bool:
 
 
 @timeit
-def brute_force_enums(exp: Expr, enums: List[Enum]) -> List[Expr]:
+def simplify_enums(exp: Expr, enums: List[Enum]) -> Expr:
     """
-    Brute Force aller Permutationen/Kombinationsmöglichkeiten der gegebenen Enums
+    Simplifies given expression with regard to given enums. For each enum it is checked, if for all enum
+    members the expression becomes true. In this case this enum is removed from the expression
 
     :param exp: expression
     :param enums: list of enumerations regarded during evaluation
+    :return: simplified expression
+    """
+    for i in range(len(enums)):
+        enum = enums[i]
+        other_enums = enums[:i] + enums[i + 1:]
+        # combined null substitution for all `other_enums`
+        null_subs = reduce(lambda a, b: {**a, **b.null_subs}, other_enums, {})
+
+        if all([exp.subs({**null_subs, **enum.subs(m)}) == true for m in enum.members]):
+            exp = exp.subs(enum.null_subs)
+
+    return exp
+
+
+@timeit
+def brute_force_enums(exp: Expr, enums: List[Enum], pred: Optional[Expr] = true) -> List[Expr]:
+    """
+    Brute Force aller Permutationen/Kombinationsmöglichkeiten der gegebenen Enums
+
+    @param exp: expression
+    @param enums: list of enumerations regarded during evaluation
+    @param pred: predicate of the node
     :return: list of substituted / simplified expression
     """
 
@@ -262,10 +315,10 @@ def brute_force_enums(exp: Expr, enums: List[Enum]) -> List[Expr]:
     for permutation in all_permutations:
         subs_dict = {}
         for e in permutation:
-            subs_dict.update({simplify(k): v for k, v in e.items()})
-            #eq_reverse_order_subs_dict = {Eq(*k.args[::-1]): v for k, v in subs_dict.items() if isinstance(k, Eq)}
-            #subs_dict.update(eq_reverse_order_subs_dict)
-        exp_new = exp.subs(subs_dict)
+            subs_dict.update({simplify_cached(k): v for k, v in e.items()})
+            # eq_reverse_order_subs_dict = {Eq(*k.args[::-1]): v for k, v in subs_dict.items() if isinstance(k, Eq)}
+            # subs_dict.update(eq_reverse_order_subs_dict)
+        exp_new = simplify_cached(exp.subs(subs_dict) & pred)
         result.append(exp_new)
     return result
 
@@ -865,7 +918,7 @@ def construct_graph(q: xml.Questionnaire):
 
             else:
                 trans_filter = true
-            excluding_trans_filter = simplify(And(*neg_trans_filters + [trans_filter]))
+            excluding_trans_filter = simplify_cached(And(*neg_trans_filters + [trans_filter]))
             edges.append((page.uid, trans.target_uid, {'filter': excluding_trans_filter}))
             neg_trans_filters.append(Not(trans_filter))
 
