@@ -241,7 +241,7 @@ def soundness_check(g: nx.Graph, v: Any, enums: List[Enum], in_exp: Expr) -> boo
     if len(out_predicates) != 0:
         tmp_veroderte_predicates = reduce(lambda a, b: a | b,
                                           out_predicates)  # Veroderung aller Ausdrücke in der Liste out_predicates
-        tmp_simplified_enums = simplify_enums(tmp_veroderte_predicates)
+        tmp_simplified_enums = simplify_enums(tmp_veroderte_predicates, enums)
 
         tmp_further_simplified_enums = brute_force_enums(tmp_simplified_enums, enums)
 
