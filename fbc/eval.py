@@ -65,7 +65,7 @@ class Enum:
         :param m: member
         :return: predicate
         """
-        return Eq(self.var, self.member_vars[m])
+        return simplify(Eq(self.var, self.member_vars[m]))
 
     def __str__(self):
         return f"{self.name}({[m for m in self.member_vars.keys()]})"
@@ -83,10 +83,9 @@ class Enum:
     def subs_dicts(self):
         result = []
         for m in self.members:
-            tmp_dict = {}
-            tmp_dict[Eq(self.member_vars[m], self.var)] = true
+            tmp_dict = {simplify(Eq(self.member_vars[m], self.var)): true}
             for o in self.get_other_member_vars(m):
-                tmp_dict[Eq(self.var, o)] = false
+                tmp_dict[simplify(Eq(self.var, o))] = false
             result.append(tmp_dict)
         return result
 
@@ -245,7 +244,7 @@ def disjointness_check(g: nx.Graph, v: Any, enums: List[Enum]) -> bool:
     return not any([t for t in truth_tables if truth_tables.count(t) > 1])
 
 
-# @timeit
+@timeit
 def brute_force_enums(exp: Expr, enums: List[Enum]) -> List[Expr]:
     """
     Brute Force aller Permutationen/Kombinationsmöglichkeiten der gegebenen Enums
@@ -263,15 +262,15 @@ def brute_force_enums(exp: Expr, enums: List[Enum]) -> List[Expr]:
     for permutation in all_permutations:
         subs_dict = {}
         for e in permutation:
-            subs_dict.update(e)
-            eq_reverse_order_subs_dict = {Eq(*k.args[::-1]): v for k, v in subs_dict.items() if isinstance(k, Eq)}
-            subs_dict.update(eq_reverse_order_subs_dict)
+            subs_dict.update({simplify(k): v for k, v in e.items()})
+            #eq_reverse_order_subs_dict = {Eq(*k.args[::-1]): v for k, v in subs_dict.items() if isinstance(k, Eq)}
+            #subs_dict.update(eq_reverse_order_subs_dict)
         exp_new = exp.subs(subs_dict)
         result.append(exp_new)
     return result
 
 
-# @timeit
+@timeit
 def truth_table_brute_force_enums(exp: Expr, enums: List[Enum]) -> List[Tuple[Basic, Basic]]:
     """
     Brute Force aller Permutationen/Kombinationsmöglichkeiten der gegebenen Enums
