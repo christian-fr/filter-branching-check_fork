@@ -7,7 +7,8 @@ from fbc.eval import soundness_check, brute_force_enums, disjointness_check, eva
     evaluate_edge_filters
 from fbc.util import draw_graph
 from tests.context.graphs import get_inconsistent_graph_01, get_inconsistent_graph_02, get_consistent_graph_01, \
-    get_consistent_graph_02, get_consistent_graph_03, get_inconsistent_graph_03, get_inconsistent_graph_02a
+    get_consistent_graph_02, get_consistent_graph_03, get_inconsistent_graph_03, get_inconsistent_graph_02a, \
+    get_consistent_graph_04, get_consistent_graph_05
 
 
 class Test(TestCase):
@@ -148,7 +149,32 @@ class Test(TestCase):
         #draw_graph(g, 'test_evaluate_node_predicates_02_predicates.png')
         g = evaluate_edge_filters(g, [p1])
         #draw_graph(g, 'test_evaluate_node_predicates_02_filters.png')
+        self.fail()
 
+    def test_evaluate_node_predicates_04(self) -> None:
+        """
+        consistent testcase with gt/ge/lt/le
+        @return:
+        """
+        g, p1 = get_consistent_graph_04()
 
+        draw_graph(g, "test_evaluate_node_predicates_04.png")
+        g = evaluate_node_predicates(g, 1, [p1])
+        draw_graph(g, 'test_evaluate_node_predicates_04_predicates.png')
+        g = evaluate_edge_filters(g, [p1])
+        draw_graph(g, 'test_evaluate_node_predicates_04_filters.png')
+        self.fail()
 
+    def test_evaluate_node_predicates_05(self):
+        """
+        consistent testcase with gt/ge/lt/le
+        @return:
+        """
+        g, p1 = get_consistent_graph_05()
+
+        draw_graph(g, "test_evaluate_node_predicates_05.png")
+        g = evaluate_node_predicates(g, 1, [p1])
+        draw_graph(g, 'test_evaluate_node_predicates_05_predicates.png')
+        g = evaluate_edge_filters(g, [p1])
+        draw_graph(g, 'test_evaluate_node_predicates_05_filters.png')
         self.fail()

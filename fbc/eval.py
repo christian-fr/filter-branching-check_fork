@@ -5,7 +5,8 @@ from functools import reduce, cached_property, lru_cache
 from typing import Any, List, Union, Dict, Tuple, Optional
 
 from fbc.util import bfs_nodes, flatten, group_by, timeit
-from sympy import simplify, true, false, Expr, Symbol, Eq, Ne, Not, Le, Lt, Ge, Gt, And, Or, Float, Integer, Basic
+from sympy import simplify, true, false, Expr, Symbol, Eq, Ne, Not, Le, Lt, Ge, Gt, And, Or, Float, Integer, Basic, \
+    Interval
 from sympy.core import evaluate as sympy_evaluate
 from sympy.logic.boolalg import Boolean, to_dnf, BooleanTrue, BooleanAtom
 from fbc.data import xml
@@ -15,6 +16,37 @@ from fbc.data.parse import LispParser
 @lru_cache(maxsize=None)
 def simplify_cached(*args, **kwargs) -> Any:
     return simplify(*args, **kwargs)
+
+class Con:
+    def __init__(self):
+        pass
+
+class Interv:
+    def __init__(self, name, interval: Interval):
+        self.interval = interval
+        self.name = name
+        self.var = Symbol(name, integer=True)
+
+    def eq(self, v):
+        return simplify_cached(Eq(self.var, v))
+
+    def ne(self, v):
+        return simplify_cached(Ne(self.var, v))
+
+    def gt(self, v):
+        return Gt(self.var, v)
+
+    def ge(self, v):
+        return Ge(self.var, v)
+
+    def lt(self, v):
+        return Lt(self.var, v)
+
+    def le(self, v):
+        return Le(self.var, v)
+
+    def __repr__(self):
+        return self.interval
 
 
 class Enum:
@@ -71,6 +103,56 @@ class Enum:
         :return: predicate
         """
         return simplify_cached(Eq(self.var, self.member_vars[m]))
+
+    def ne(self, m):
+        """
+        Returns predicate checking if the enum variable is not equal to the given member
+
+        :param m: member
+        :return: predicate
+        """
+        return simplify_cached(
+            reduce(lambda a, b: a | b, [Eq(self.var, self.member_vars[n]) for n in self.members if n != m]))
+
+    def gt(self, m):
+        """
+        Returns predicate checking if the enum variable is greater to the given value
+
+        :param m: member
+        :return: predicate
+        """
+        return simplify_cached(
+            reduce(lambda a, b: a | b, [Eq(self.var, self.member_vars[n]) for n in self.members if n > m]))
+
+    def ge(self, m):
+        """
+        Returns predicate checking if the enum variable is greater than or equal to the given value
+
+        :param m: member
+        :return: predicate
+        """
+        return simplify_cached(
+            reduce(lambda a, b: a | b, [Eq(self.var, self.member_vars[n]) for n in self.members if n >= m]))
+
+    def lt(self, m):
+        """
+        Returns predicate checking if the enum variable is less than the given value
+
+        :param m: member
+        :return: predicate
+        """
+        return simplify_cached(
+            reduce(lambda a, b: a | b, [Eq(self.var, self.member_vars[n]) for n in self.members if n < m]))
+
+    def le(self, m):
+        """
+        Returns predicate checking if the enum variable is less than or equal to the given value
+
+        :param m: member
+        :return: predicate
+        """
+        return simplify_cached(
+            reduce(lambda a, b: a | b, [Eq(self.var, self.member_vars[n]) for n in self.members if n <= m]))
 
     def __str__(self):
         return f"{self.name}({[m for m in self.member_vars.keys()]})"
