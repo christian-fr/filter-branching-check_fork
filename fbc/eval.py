@@ -1,12 +1,16 @@
 from collections import defaultdict
+from itertools import product
 
 import networkx as nx
 from functools import reduce, cached_property, lru_cache
 from typing import Any, List, Union, Dict, Tuple, Optional
 
+from sympy.core.relational import Relational
+from sympy.sets.sets import EmptySet
+
 from fbc.util import bfs_nodes, flatten, group_by, timeit
 from sympy import simplify, true, false, Expr, Symbol, Eq, Ne, Not, Le, Lt, Ge, Gt, And, Or, Float, Integer, Basic, \
-    Interval
+    Interval, FiniteSet
 from sympy.core import evaluate as sympy_evaluate
 from sympy.logic.boolalg import Boolean, to_dnf, BooleanTrue, BooleanAtom
 from fbc.data import xml
@@ -17,36 +21,10 @@ from fbc.data.parse import LispParser
 def simplify_cached(*args, **kwargs) -> Any:
     return simplify(*args, **kwargs)
 
+
 class Con:
     def __init__(self):
         pass
-
-class Interv:
-    def __init__(self, name, interval: Interval):
-        self.interval = interval
-        self.name = name
-        self.var = Symbol(name, integer=True)
-
-    def eq(self, v):
-        return simplify_cached(Eq(self.var, v))
-
-    def ne(self, v):
-        return simplify_cached(Ne(self.var, v))
-
-    def gt(self, v):
-        return Gt(self.var, v)
-
-    def ge(self, v):
-        return Ge(self.var, v)
-
-    def lt(self, v):
-        return Lt(self.var, v)
-
-    def le(self, v):
-        return Le(self.var, v)
-
-    def __repr__(self):
-        return self.interval
 
 
 class Enum:
@@ -54,7 +32,7 @@ class Enum:
     Defines an enumeration with a finite set of members.
     """
 
-    def __init__(self, name, members, typ=None):
+    def __init__(self, name, members, typ: Optional[str] = None, label_dict: Optional[dict] = None):
         """
         Initialize an enumeration
 
@@ -72,6 +50,14 @@ class Enum:
         self.members = set(members)
         self.member_vars = {m: Symbol(f"LIT_{name}_{m}", integer=True) for m in members}
         self.typ = typ
+        if label_dict is not None:
+            self.labels = {m: label_dict[m] if m in label_dict else None for m in members}
+        else:
+            self.labels = None
+        self.value_interval_dict = None
+        self.used_intervals_list = None
+        self.disjoint_intervals_list = None
+        self.used_to_disjoint_dict = None
 
     def subs(self, m):
         """
@@ -177,8 +163,99 @@ class Enum:
         return result
 
 
+class Interv():
+    def __init__(self, name, interval: Interval):
+        self.interval = interval
+        self.name = name
+        self.var = Symbol(name)
+        self.used_intervals_list = []
+        self.disjoint_intervals_list = []
+        self.used_to_disjoint_dict = {}
+        # ToDo: Implement this as a Child of Enum w/ full inheritance!
+    @staticmethod
+    def _make_intervals_disjunct(interval_list: List[Union[Interval, FiniteSet]]) -> List[Union[Interval, FiniteSet]]:
+        # ensure uniqueness
+        result = list({e for e in interval_list})
+
+        permutations = [(u, v) for u, v in product(result, repeat=2) if u != v]
+
+        while not all([u.intersection(v).is_empty for u, v in permutations]):
+
+            for permutation in permutations:
+                u, v = permutation
+                if u.intersection(v).is_empty:
+                    continue
+                else:
+                    new_a = u - v
+                    new_b = v - u
+                    new_a_and_b = u & v
+                    result.remove(u)
+                    result.remove(v)
+                    result += [interv for interv in [new_a, new_b, new_a_and_b] if not interv.is_empty]
+                    print()
+                    break
+            result = list({e for e in result})
+            permutations = [(u, v) for u, v in product(result, repeat=2) if u != v]
+
+        return result
+
+    def get_used_to_disjoint_dict(self):
+        return {interval: [e for e in self.disjoint_intervals_list if e.is_subset(interval)] for interval
+                in self.used_intervals_list}
+
+    def to_enum(self) -> Enum:
+        self.disjoint_intervals_list = self._make_intervals_disjunct(self.used_intervals_list)
+        # results_dict = {}
+        # for interv in self.used_intervals_list:
+        #     results_dict[interv] = [e.as_relational(self.var) for e in self.disjoint_intervals_list if
+        #                             e.is_subset(interv)]
+
+        self.used_to_disjoint_dict = self.get_used_to_disjoint_dict()
+
+        enum_members_dict = {i + 1: tpl for i, tpl in enumerate(self.disjoint_intervals_list)}
+
+        enum = Enum(self.name, sorted(list(enum_members_dict.keys())))
+
+        enum.disjoint_intervals_list = self.disjoint_intervals_list
+        enum.used_interval_dict = self.used_intervals_list
+        enum.used_to_disjoint_dict = self.used_to_disjoint_dict
+        # dieses dict ist eigentlich alles, was ich brauche: Keys sind die used Intervalle, Values sind Listen
+        #  von Intervallen
+        enum.value_interval_dict = enum_members_dict
+        # und hier ist das Mapping der Members auf die Listen von Intervallen
+
+        return enum
+
+    def _add_to_eff_interv(self, rel_exp: Relational):
+        rel_exp = simplify_cached(rel_exp)
+        if rel_exp.as_set() not in self.used_intervals_list:
+            self.used_intervals_list.append(rel_exp.as_set())
+        return rel_exp
+
+    def eq(self, v):
+        return self._add_to_eff_interv(Eq(self.var, v))
+
+    def ne(self, v):
+        return self._add_to_eff_interv(Ne(self.var, v))
+
+    def gt(self, v):
+        return self._add_to_eff_interv(Gt(self.var, v))
+
+    def ge(self, v):
+        return self._add_to_eff_interv(Ge(self.var, v))
+
+    def lt(self, v):
+        return self._add_to_eff_interv(Lt(self.var, v))
+
+    def le(self, v):
+        return self._add_to_eff_interv(Le(self.var, v))
+
+    def __repr__(self):
+        return self.interval
+
+
 # duplicate of better implementation in main.main()
-def evaluate_node_predicates(g: nx.DiGraph, source: Any, enums: List[Enum]) -> nx.DiGraph:
+def evaluate_node_predicates(g: nx.DiGraph, source: Any, enums: List[Union[Enum, Interv]]) -> nx.DiGraph:
     """
     Evaluates all node predicates in `g` reachable from `source` node. As a result each node will contain a 'pred'
     attribute containing the condition to be fulfilled in order to reach the respective node.
@@ -194,6 +271,19 @@ def evaluate_node_predicates(g: nx.DiGraph, source: Any, enums: List[Enum]) -> n
     :param source: node to start from
     :param enums: list of enumerations regarded during evaluation
     """
+
+    # process Interv()
+    def _process_interv(enums: List[Union[Enum, Interv]]) -> List[Enum]:
+        result = [e for e in enums if isinstance(e, Enum)]
+        interv_list = [i for i in enums if isinstance(i, Interv)]
+
+        [result.append(interv.to_enum()) for interv in interv_list]
+        if len(result) < len(enums):
+            raise NotImplementedError
+        return result
+
+    enums = _process_interv(enums)
+
     nodes = bfs_nodes(g, source=source)
 
     # In order to process a node, each node either needs to have no inbound edges or all parent nodes already need

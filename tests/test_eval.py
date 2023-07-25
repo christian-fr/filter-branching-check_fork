@@ -1,7 +1,7 @@
 from functools import reduce
 from unittest import TestCase
 
-from sympy import simplify, true
+from sympy import simplify, true, Symbol
 
 from fbc.eval import soundness_check, brute_force_enums, disjointness_check, evaluate_node_predicates, \
     evaluate_edge_filters
@@ -158,11 +158,11 @@ class Test(TestCase):
         """
         g, p1 = get_consistent_graph_04()
 
-        draw_graph(g, "test_evaluate_node_predicates_04.png")
+        # draw_graph(g, "test_evaluate_node_predicates_04.png")
         g = evaluate_node_predicates(g, 1, [p1])
-        draw_graph(g, 'test_evaluate_node_predicates_04_predicates.png')
+        # draw_graph(g, 'test_evaluate_node_predicates_04_predicates.png')
         g = evaluate_edge_filters(g, [p1])
-        draw_graph(g, 'test_evaluate_node_predicates_04_filters.png')
+        # draw_graph(g, 'test_evaluate_node_predicates_04_filters.png')
         self.fail()
 
     def test_evaluate_node_predicates_05(self):
@@ -170,11 +170,12 @@ class Test(TestCase):
         consistent testcase with gt/ge/lt/le
         @return:
         """
-        g, p1 = get_consistent_graph_05()
+        g, v1 = get_consistent_graph_05()
 
-        draw_graph(g, "test_evaluate_node_predicates_05.png")
-        g = evaluate_node_predicates(g, 1, [p1])
-        draw_graph(g, 'test_evaluate_node_predicates_05_predicates.png')
-        g = evaluate_edge_filters(g, [p1])
-        draw_graph(g, 'test_evaluate_node_predicates_05_filters.png')
+        edge_filters = [(u, v, f) for u, v, f in g.edges(data=True)]
+        # draw_graph(g, "test_evaluate_node_predicates_05.png")
+        g = evaluate_node_predicates(g, 1, [v1])
+        # draw_graph(g, 'test_evaluate_node_predicates_05_predicates.png')
+        g = evaluate_edge_filters(g, [v1])
+        # draw_graph(g, 'test_evaluate_node_predicates_05_filters.png')
         self.fail()

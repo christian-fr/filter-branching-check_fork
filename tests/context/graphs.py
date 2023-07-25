@@ -284,7 +284,7 @@ def get_consistent_graph_04() -> Tuple[nx.DiGraph, Enum]:
 
 
 
-def get_consistent_graph_05() -> Tuple[nx.DiGraph, Enum]:
+def get_consistent_graph_05() -> Tuple[nx.DiGraph, Interv]:
     """
     Graph with Interv() variables
     @return:
