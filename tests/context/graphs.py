@@ -1,7 +1,8 @@
+import json
 from typing import Tuple
 
 import networkx as nx
-from sympy import true, Interval
+from sympy import true, Interval, Eq
 from sympy import oo
 
 from fbc.eval import Enum, Interv
@@ -283,7 +284,6 @@ def get_consistent_graph_04() -> Tuple[nx.DiGraph, Enum]:
     return g, p1
 
 
-
 def get_consistent_graph_05() -> Tuple[nx.DiGraph, Interv]:
     """
     Graph with Interv() variables
@@ -330,3 +330,34 @@ def get_consistent_graph_05() -> Tuple[nx.DiGraph, Interv]:
                       (21, 22, {"filter": true}),
                       ])
     return g, v1
+
+
+result_evaluate_node_predicates_02 = json.loads(
+    '[[[1, 2], "Eq(LIT_p1_a, p1) | Eq(LIT_p1_b, p1)"], [[1, 12], '
+    '"Eq(LIT_p1_c, p1) | Eq(LIT_p1_d, p1) | Eq(LIT_p1_e, p1) | Eq(LIT_p1_f, p1) | Eq(LIT_p1_g, p1)"], [[2, 3], '
+    '"Eq(LIT_p1_a, p1)"], [[2, 5], "Eq(LIT_p1_b, p1)"], [[3, 300], '
+    '"Eq(LIT_p1_a, p1)"], [[4, 7], "Eq(LIT_p1_a, p1)"], [[5, 500], '
+    '"Eq(LIT_p1_b, p1)"], [[6, 7], "Eq(LIT_p1_b, p1)"], [[7, 8], '
+    '"Eq(LIT_p1_a, p1) | Eq(LIT_p1_b, p1)"], [[8, 9], '
+    '"Eq(LIT_p1_a, p1) | Eq(LIT_p1_b, p1)"], [[9, 10], '
+    '"Eq(LIT_p1_a, p1) | Eq(LIT_p1_b, p1)"], [[10, 11],'
+    '"Eq(LIT_p1_a, p1) | Eq(LIT_p1_b, p1)"], [[11, 20],'
+    '"True"], [[12, 13],'
+    '"Eq(LIT_p1_c, p1)"], [[12, 15],'
+    '"Eq(LIT_p1_d, p1) | Eq(LIT_p1_e, p1) | Eq(LIT_p1_f, p1) | Eq(LIT_p1_g, p1)"], [[13, 1300],'
+    '"Eq(LIT_p1_c, p1)"], [[14, 17],'
+    '"Eq(LIT_p1_c, p1)"], [[15, 1500],'
+    '"Eq(LIT_p1_d, p1) | Eq(LIT_p1_e, p1) | Eq(LIT_p1_f, p1) | Eq(LIT_p1_g, p1)"], [[16, 17],'
+    '"Eq(LIT_p1_d, p1) | Eq(LIT_p1_e, p1) | Eq(LIT_p1_f, p1) | Eq(LIT_p1_g, p1)"], [[17, 18],'
+    '"Eq(LIT_p1_c, p1) | Eq(LIT_p1_d, p1) | Eq(LIT_p1_e, p1) | Eq(LIT_p1_f, p1) | Eq(LIT_p1_g, p1)"], [[18, 19],'
+    '"Eq(LIT_p1_c, p1) | Eq(LIT_p1_d, p1) | Eq(LIT_p1_e, p1) | Eq(LIT_p1_f, p1) | Eq(LIT_p1_g, p1)"], [[19, 11],'
+    '"Eq(LIT_p1_c, p1) | Eq(LIT_p1_d, p1) | Eq(LIT_p1_e, p1) | Eq(LIT_p1_f, p1) | Eq(LIT_p1_g, p1)"], [[20, 21],'
+    '"True"], [[21, 22],'
+    '"True"], [[300, 4],'
+    '"Eq(LIT_p1_a, p1)"], [[500, 6],'
+    '"Eq(LIT_p1_b, p1)"], [[1300, 14],'
+    '"Eq(LIT_p1_c, p1)"], [[1500, 1501],'
+    '"False"], [[1500, 1502],'
+    '"Eq(LIT_p1_d, p1) | Eq(LIT_p1_e, p1) | Eq(LIT_p1_f, p1) | Eq(LIT_p1_g, p1)"], [[1501, 16],'
+    '"False"], [[1502, 16],'
+    '"Eq(LIT_p1_d, p1) | Eq(LIT_p1_e, p1) | Eq(LIT_p1_f, p1) | Eq(LIT_p1_g, p1)"]]')

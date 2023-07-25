@@ -1,9 +1,10 @@
 from collections import defaultdict
+from dataclasses import dataclass
 from itertools import product
 
 import networkx as nx
 from functools import reduce, cached_property, lru_cache
-from typing import Any, List, Union, Dict, Tuple, Optional
+from typing import Any, List, Union, Dict, Tuple, Optional, Set
 
 from sympy.core.relational import Relational
 from sympy.sets.sets import EmptySet
@@ -27,10 +28,32 @@ class Con:
         pass
 
 
+@dataclass
 class Enum:
     """
     Defines an enumeration with a finite set of members.
     """
+    name: Any
+    var: Symbol
+    typ: Any
+    labels: Dict
+    members: Set
+    member_vars: Optional[Dict]
+    value_to_interval_map: Optional[Dict]
+    used_interv_to_disjoint_map: Optional[Dict]
+    used_intervals_list: Optional[List] = None
+
+    def set_members(self, members):
+        self.members = set(members)
+
+    def set_member_vars(self, members):
+        self.member_vars = {m: Symbol(f"LIT_{self.name}_{m}", integer=True) for m in members}
+
+    def set_labels(self, label_dict: dict):
+        if label_dict is not None:
+            self.labels = {m: label_dict[m] if m in label_dict else None for m in self.members}
+        else:
+            self.labels = {}
 
     def __init__(self, name, members, typ: Optional[str] = None, label_dict: Optional[dict] = None):
         """
@@ -44,20 +67,13 @@ class Enum:
             raise ValueError("typ must be one of ['string', 'number', None]")
 
         self.name = name
-
         self.var = Symbol(name, integer=True)
-
-        self.members = set(members)
-        self.member_vars = {m: Symbol(f"LIT_{name}_{m}", integer=True) for m in members}
         self.typ = typ
-        if label_dict is not None:
-            self.labels = {m: label_dict[m] if m in label_dict else None for m in members}
-        else:
-            self.labels = None
-        self.value_interval_dict = None
-        self.used_intervals_list = None
-        self.disjoint_intervals_list = None
-        self.used_to_disjoint_dict = None
+
+        self.set_members(members)
+        self.set_member_vars(members)
+        self.set_labels(label_dict)
+
 
     def subs(self, m):
         """
@@ -163,7 +179,7 @@ class Enum:
         return result
 
 
-class Interv():
+class Interv(Enum):
     def __init__(self, name, interval: Interval):
         self.interval = interval
         self.name = name
@@ -172,6 +188,7 @@ class Interv():
         self.disjoint_intervals_list = []
         self.used_to_disjoint_dict = {}
         # ToDo: Implement this as a Child of Enum w/ full inheritance!
+
     @staticmethod
     def _make_intervals_disjunct(interval_list: List[Union[Interval, FiniteSet]]) -> List[Union[Interval, FiniteSet]]:
         # ensure uniqueness
@@ -216,12 +233,11 @@ class Interv():
 
         enum = Enum(self.name, sorted(list(enum_members_dict.keys())))
 
-        enum.disjoint_intervals_list = self.disjoint_intervals_list
         enum.used_interval_dict = self.used_intervals_list
-        enum.used_to_disjoint_dict = self.used_to_disjoint_dict
+        enum.used_interv_to_disjoint_map = self.used_to_disjoint_dict
         # dieses dict ist eigentlich alles, was ich brauche: Keys sind die used Intervalle, Values sind Listen
         #  von Intervallen
-        enum.value_interval_dict = enum_members_dict
+        enum.value_to_interval_map = enum_members_dict
         # und hier ist das Mapping der Members auf die Listen von Intervallen
 
         return enum
@@ -272,17 +288,14 @@ def evaluate_node_predicates(g: nx.DiGraph, source: Any, enums: List[Union[Enum,
     :param enums: list of enumerations regarded during evaluation
     """
 
-    # process Interv()
-    def _process_interv(enums: List[Union[Enum, Interv]]) -> List[Enum]:
-        result = [e for e in enums if isinstance(e, Enum)]
-        interv_list = [i for i in enums if isinstance(i, Interv)]
+    if any([isinstance(e, Interv) for e in enums]):
+        pure_enums_list = [e for e in enums if isinstance(e, Enum)]
+        interv_list = [e for e in enums if isinstance(e, Interv)]
 
-        [result.append(interv.to_enum()) for interv in interv_list]
-        if len(result) < len(enums):
-            raise NotImplementedError
-        return result
-
-    enums = _process_interv(enums)
+        tmp_list = []
+        for e in interv_list:
+            tmp_list.append(e.to_enum())
+        enums = tmp_list
 
     nodes = bfs_nodes(g, source=source)
 
