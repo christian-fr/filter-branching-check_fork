@@ -9,7 +9,8 @@ from fbc.eval import soundness_check, brute_force_enums, disjointness_check, eva
 from fbc.util import draw_graph
 from tests.context.graphs import get_inconsistent_graph_01, get_inconsistent_graph_02, get_consistent_graph_01, \
     get_consistent_graph_02, get_consistent_graph_03, get_inconsistent_graph_03, get_inconsistent_graph_02a, \
-    get_consistent_graph_04, get_consistent_graph_05, result_evaluate_node_predicates_02
+    get_consistent_graph_04, get_consistent_graph_05, result_evaluate_node_predicates_02, \
+    result_evaluate_node_predicates_01, result_evaluate_edge_filters_01, result_evaluate_edge_filters_02
 
 
 class Test(TestCase):
@@ -136,24 +137,29 @@ class Test(TestCase):
 
     def test_evaluate_node_predicates_01(self):
         g, p1 = get_consistent_graph_03()
-
-        #draw_graph(g, "test_evaluate_node_predicates_01.png")
         g = evaluate_node_predicates(g, 1, [p1])
-        #draw_graph(g, 'test_evaluate_node_predicates_01_predicates.png')
         edges_serialized = json.loads(json.dumps(sorted([(e[:2], str(e[2]['filter'])) for e in g.edges(data=True)])))
-        self.fail()
+        self.assertEqual(edges_serialized, result_evaluate_node_predicates_01)
+
+    def test_evaluate_edge_filters_01(self):
+        g, p1 = get_consistent_graph_03()
+        g = evaluate_node_predicates(g, 1, [p1])
+        g = evaluate_edge_filters(g, [p1])
+        edges_serialized = json.loads(json.dumps(sorted([(e[:2], str(e[2]['filter'])) for e in g.edges(data=True)])))
+        self.assertEqual(edges_serialized, result_evaluate_edge_filters_01)
 
     def test_evaluate_node_predicates_02(self):
         g, p1 = get_inconsistent_graph_03()
-
-        # draw_graph(g, "test_evaluate_node_predicates_02.png")
         g = evaluate_node_predicates(g, 1, [p1])
-        # draw_graph(g, 'test_evaluate_node_predicates_02_predicates.png')
-        g = evaluate_edge_filters(g, [p1])
-        # draw_graph(g, 'test_evaluate_node_predicates_02_filters.png')
-
         edges_serialized = json.loads(json.dumps(sorted([(e[:2], str(e[2]['filter'])) for e in g.edges(data=True)])))
         self.assertEqual(edges_serialized, result_evaluate_node_predicates_02)
+
+    def test_evaluate_edge_filters_02(self):
+        g, p1 = get_inconsistent_graph_03()
+        g = evaluate_node_predicates(g, 1, [p1])
+        g = evaluate_edge_filters(g, [p1])
+        edges_serialized = json.loads(json.dumps(sorted([(e[:2], str(e[2]['filter'])) for e in g.edges(data=True)])))
+        self.assertEqual(edges_serialized, result_evaluate_edge_filters_02)
 
     def test_evaluate_node_predicates_04(self) -> None:
         """
