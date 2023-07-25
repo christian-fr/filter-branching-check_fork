@@ -2,13 +2,12 @@ import traceback
 from pathlib import Path
 
 import networkx as nx
-from sympy import true, Symbol
 from fbc.eval import graph_soundness_check, Enum, construct_graph, evaluate_node_predicates, in_degree_soundness_check
 from fbc.util import show_graph, draw_graph, flatten
-from fbc.data.xml import read_questionnaire, EnumValue
+from fbc.data.xml import read_questionnaire
 import re
 from fbc.eval import bfs_nodes
-from sympy import simplify, true, false, Expr, Symbol, Eq, Ne, Not, Le, Lt, Ge, Gt, And, Or, Float, Integer
+from sympy import simplify, true, false
 from functools import reduce
 from fbc.util import timeit
 

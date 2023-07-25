@@ -7,13 +7,12 @@ from functools import reduce, cached_property, lru_cache
 from typing import Any, List, Union, Dict, Tuple, Optional, Set
 
 from sympy.core.relational import Relational
-from sympy.sets.sets import EmptySet
 
 from fbc.util import bfs_nodes, flatten, group_by, timeit
 from sympy import simplify, true, false, Expr, Symbol, Eq, Ne, Not, Le, Lt, Ge, Gt, And, Or, Float, Integer, Basic, \
     Interval, FiniteSet
 from sympy.core import evaluate as sympy_evaluate
-from sympy.logic.boolalg import Boolean, to_dnf, BooleanTrue, BooleanAtom
+from sympy.logic.boolalg import Boolean, to_dnf, BooleanAtom
 from fbc.data import xml
 from fbc.data.parse import LispParser
 
@@ -180,7 +179,8 @@ class Enum:
 
 
 class Interv(Enum):
-    def __init__(self, name, interval: Interval):
+    def __init__(self, name, interval: Interval, members):
+        super().__init__(name, members)
         self.interval = interval
         self.name = name
         self.var = Symbol(name)
@@ -341,7 +341,6 @@ def evaluate_node_predicates(g: nx.DiGraph, source: Any, enums: List[Union[Enum,
 def evaluate_edge_filters(g: nx.DiGraph, enums: List[Enum]) -> nx.DiGraph:
     """
     :param g: graph
-    :param source: node to start from
     :param enums: list of enumerations regarded during evaluation
     """
     edges = [(u, v, f['filter']) for u, v, f in g.edges(data=True)]
