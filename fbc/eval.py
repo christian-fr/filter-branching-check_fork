@@ -1,14 +1,15 @@
 from collections import defaultdict
 from dataclasses import dataclass
-from itertools import product
+from itertools import product, compress
 
 import networkx as nx
 from functools import reduce, cached_property, lru_cache
 from typing import Any, List, Union, Dict, Tuple, Optional, Set
 
-from sympy.core.relational import Relational
+from sympy.core.evalf import EvalfMixin
+from sympy.core.relational import Relational, Equality
 
-from fbc.util import bfs_nodes, flatten, group_by, timeit
+from fbc.util import bfs_nodes, flatten, group_by, timeit, get_mask
 from sympy import simplify, true, false, Expr, Symbol, Eq, Ne, Not, Le, Lt, Ge, Gt, And, Or, Float, Integer, Basic, \
     Interval, FiniteSet
 from sympy.core import evaluate as sympy_evaluate
@@ -72,7 +73,6 @@ class Enum:
         self.set_members(members)
         self.set_member_vars(members)
         self.set_labels(label_dict)
-
 
     def subs(self, m):
         """
@@ -179,15 +179,39 @@ class Enum:
 
 
 class Interv(Enum):
-    def __init__(self, name, interval: Interval, members):
-        super().__init__(name, members)
+    def __init__(self, name, interval: Interval):
+        super().__init__(name=name, members=[])
         self.interval = interval
         self.name = name
         self.var = Symbol(name)
         self.used_intervals_list = []
         self.disjoint_intervals_list = []
         self.used_to_disjoint_dict = {}
+        self.value_to_interval_map = {}
+        self.interval_to_value_map = {}
+        self.value_to_member_var = {}
         # ToDo: Implement this as a Child of Enum w/ full inheritance!
+
+    @property
+    def subs_dict(self, exp: Expr) -> Dict[Expr, bool]:
+        raise NotImplementedError
+        return None
+
+    @property
+    def subs_dicts(self) -> List[Expr]:
+        if self.members == set():
+            self.process_as_enum()
+        mask_list = get_mask(len(self.members))
+        result = []
+        for mask in mask_list:
+            member_vars = [self.member_vars[m] for m in sorted(list(self.members))]
+            positive_list = [simplify_cached(Eq(e, self.var)) for e in compress(member_vars, mask)]
+            negative_list = [simplify_cached(Eq(e, self.var)) for e in compress(member_vars, [1 - i for i in mask])]
+            positive_dict = {e: true for e in positive_list}
+            negative_dict = {e: false for e in negative_list}
+            result_dict = {**positive_dict, **negative_dict}
+            result.append(reduce(lambda a, b: a & b, [*positive_list, *negative_list]))
+        return result
 
     @staticmethod
     def _make_intervals_disjunct(interval_list: List[Union[Interval, FiniteSet]]) -> List[Union[Interval, FiniteSet]]:
@@ -216,12 +240,37 @@ class Interv(Enum):
 
         return result
 
+    def get_subs_for_interval_exp(self, exp: Expr) -> Expr:
+        self.process_as_enum()
+        positive_list = []
+        negative_list = []
+        for value, interval in self.value_to_interval_map.items():
+            if interval.is_subset(exp.as_set()):
+                positive_list.append(Eq(self.member_vars[value], self.var))
+            else:
+                negative_list.append(Ne(self.member_vars[value], self.var))
+        return simplify_cached(reduce(lambda a, b: a & b, [*positive_list, *negative_list]))
+        # positive_subs_dict = {simplify_cached(e): true for e in positive_list}
+        # negative_subs_dict = {simplify_cached(e): false for e in negative_list}
+        # result = {**positive_subs_dict, **negative_subs_dict}
+        # return result
+
     def get_used_to_disjoint_dict(self):
+        self.prepare_disjoint_intervals()
+        # tmp_dict = {}
+        #
+        # for interval in self.used_intervals_list:
+        #     for e in self.disjoint_intervals_list:
+        #         if e.is_subset(interval):
+        #             tmp_dict[interval] = e
         return {interval: [e for e in self.disjoint_intervals_list if e.is_subset(interval)] for interval
                 in self.used_intervals_list}
 
-    def to_enum(self) -> Enum:
+    def prepare_disjoint_intervals(self):
         self.disjoint_intervals_list = self._make_intervals_disjunct(self.used_intervals_list)
+
+    def process_as_enum(self) -> None:
+        self.disjoint_intervals_list = sorted(self._make_intervals_disjunct(self.used_intervals_list))
         # results_dict = {}
         # for interv in self.used_intervals_list:
         #     results_dict[interv] = [e.as_relational(self.var) for e in self.disjoint_intervals_list if
@@ -231,16 +280,21 @@ class Interv(Enum):
 
         enum_members_dict = {i + 1: tpl for i, tpl in enumerate(self.disjoint_intervals_list)}
 
-        enum = Enum(self.name, sorted(list(enum_members_dict.keys())))
+        self.set_members(sorted(list(enum_members_dict.keys())))
+        self.set_member_vars(self.members)
+        # enum = Enum(self.name, sorted(list(enum_members_dict.keys())))
 
-        enum.used_interval_dict = self.used_intervals_list
-        enum.used_interv_to_disjoint_map = self.used_to_disjoint_dict
+        # enum.used_interval_dict = self.used_intervals_list
+        # enum.used_interv_to_disjoint_map = self.used_to_disjoint_dict
         # dieses dict ist eigentlich alles, was ich brauche: Keys sind die used Intervalle, Values sind Listen
         #  von Intervallen
-        enum.value_to_interval_map = enum_members_dict
+        self.value_to_interval_map = enum_members_dict
+
+        self.interval_to_value_map = {v: k for k, v in self.value_to_interval_map.items()}
+        self.value_to_member_var = {self.member_vars[m]: self.value_to_interval_map[m] for m in self.members}
         # und hier ist das Mapping der Members auf die Listen von Intervallen
 
-        return enum
+        # return enum
 
     def _add_to_eff_interv(self, rel_exp: Relational):
         rel_exp = simplify_cached(rel_exp)
@@ -267,7 +321,7 @@ class Interv(Enum):
         return self._add_to_eff_interv(Le(self.var, v))
 
     def __repr__(self):
-        return self.interval
+        return str(f'{self.name}({self.interval})')
 
 
 # duplicate of better implementation in main.main()
@@ -288,14 +342,14 @@ def evaluate_node_predicates(g: nx.DiGraph, source: Any, enums: List[Union[Enum,
     :param enums: list of enumerations regarded during evaluation
     """
 
-    if any([isinstance(e, Interv) for e in enums]):
-        pure_enums_list = [e for e in enums if isinstance(e, Enum)]
-        interv_list = [e for e in enums if isinstance(e, Interv)]
-
-        tmp_list = []
-        for e in interv_list:
-            tmp_list.append(e.to_enum())
-        enums = tmp_list
+    # if any([isinstance(e, Interv) for e in enums]):
+    #     pure_enums_list = [e for e in enums if isinstance(e, Enum)]
+    #     interv_list = [e for e in enums if isinstance(e, Interv)]
+    #
+    #     tmp_list = []
+    #     for e in interv_list:
+    #         tmp_list.append(e.to_enum())
+    #     enums = tmp_list
 
     nodes = bfs_nodes(g, source=source)
 
@@ -321,12 +375,16 @@ def evaluate_node_predicates(g: nx.DiGraph, source: Any, enums: List[Union[Enum,
 
                 # determine node predicate via conjunction of each `node predicate`-`edge filter` pair and
                 # disjunction of those results
-                node_pred = simplify_enums(simplify_cached(reduce(lambda res, p: res | (p[0] & p[1]), in_nodes, false)),
-                                           enums)
-                if all(brute_force_enums(node_pred, enums)):
+                combinded_in_nodes = reduce(lambda res, p: res | (p[0] & p[1]), in_nodes, false)
+                simplified_combined = simplify_cached(combinded_in_nodes)
+                simplified_enums = simplify_enums(simplified_combined, enums)
+                brute_force_results = brute_force_enums(simplified_enums, enums)
+                if all(brute_force_results):
                     node_pred = true
-                elif not any(brute_force_enums(node_pred, enums)):
+                elif not any(brute_force_results):
                     node_pred = false
+                else:
+                    node_pred = simplified_enums
                 g.nodes[v].update({"pred": node_pred})
 
                 processed_nodes.add(v)
@@ -361,6 +419,8 @@ def evaluate_edge_filters(g: nx.DiGraph, enums: List[Enum]) -> nx.DiGraph:
 def in_degree_soundness_check(g: nx.DiGraph):
     # ToDo: check whether this is still an appropriate check regarding the consistency conditions discussed in
     #  the paper!
+
+    # noinspection PyTypeChecker
     nodes_w_o_in_edges = [u for u, n in g.in_degree if n == 0]
     try:
         assert len(nodes_w_o_in_edges) <= 1
@@ -470,17 +530,25 @@ def simplify_enums(exp: Expr, enums: List[Enum]) -> Expr:
     """
     for i in range(len(enums)):
         enum = enums[i]
-        other_enums = enums[:i] + enums[i + 1:]
-        # combined null substitution for all `other_enums`
-        null_subs = reduce(lambda a, b: {**a, **b.null_subs}, other_enums, {})
 
-        if all([exp.subs({**null_subs, **enum.subs(m)}) == true for m in enum.members]):
-            exp = exp.subs(enum.null_subs)
+        if isinstance(enum, Interv):
+            assert exp.as_set() in enum.get_used_to_disjoint_dict()
+            exp = enum.get_subs_for_interval_exp(exp)
+            return exp
 
+        elif isinstance(enum, Enum):
+            other_enums = enums[:i] + enums[i + 1:]
+            # combined null substitution for all `other_enums`
+            null_subs = reduce(lambda a, b: {**a, **b.null_subs}, other_enums, {})
+
+            if all([exp.subs({**null_subs, **enum.subs(m)}) == true for m in enum.members]):
+                exp = exp.subs(enum.null_subs)
+        else:
+            raise TypeError(f'unknown Type: {type(enum)}')
     return exp
 
 
-@timeit
+# @timeit
 def brute_force_enums(exp: Expr, enums: List[Enum], pred: Optional[Expr] = true) -> List[Expr]:
     """
     Brute Force aller Permutationen/Kombinationsmöglichkeiten der gegebenen Enums
@@ -1109,3 +1177,22 @@ def construct_graph(q: xml.Questionnaire):
     g.add_edges_from(edges)
 
     return g
+
+
+def split_symbols_literals(ll: Set[Symbol]) -> Tuple[List[str], List[str]]:
+    return sorted([s.name for s in ll if not s.name.startswith('LIT_')]), \
+        sorted([s.name for s in ll if s.name.startswith('LIT_')])
+
+
+def get_symbols(exp: Union[Boolean, Symbol], ll: Optional[List] = None) -> Set[Symbol]:
+    if ll is None:
+        ll = set()
+
+    for arg in exp.args:
+        if isinstance(arg, Symbol):
+            ll.add(arg)
+        elif isinstance(arg, Boolean):
+            get_symbols(arg, ll)
+        else:
+            raise TypeError
+    return ll

@@ -5,7 +5,7 @@ from unittest import TestCase
 from sympy import simplify, true, Symbol
 
 from fbc.eval import soundness_check, brute_force_enums, disjointness_check, evaluate_node_predicates, \
-    evaluate_edge_filters
+    evaluate_edge_filters, get_symbols, split_symbols_literals
 from fbc.util import draw_graph
 from tests.context.graphs import get_inconsistent_graph_01, get_inconsistent_graph_02, get_consistent_graph_01, \
     get_consistent_graph_02, get_consistent_graph_03, get_inconsistent_graph_03, get_inconsistent_graph_02a, \
@@ -44,7 +44,8 @@ class Test(TestCase):
         # get a consistent graph with branches
         g, p1 = get_consistent_graph_03()
         # draw_graph(g, "test_graph_soundness_check_03.png")
-        exit()
+
+        self.fail()
         # ToDo: this needs to be fully implemented & fixed.
         #  BFS tree traversal, inheritance of predicates -> filter conditions, etc.
         result = all([soundness_check(g, v, enums=[p1, p2], in_exp=expression) for v in g.nodes])
@@ -108,7 +109,7 @@ class Test(TestCase):
         simplified_enums = simplify(tmp_veroderte_predicates)
         # this should evaluate to false
         further_simplified_enums = brute_force_enums(simplified_enums, enums)
-
+        # draw_graph(g, 'example.png')
         self.assertEqual(False, all(further_simplified_enums))
 
     def test_disjointness_check_01(self):
@@ -189,3 +190,13 @@ class Test(TestCase):
         g = evaluate_edge_filters(g, [v1])
         # draw_graph(g, 'test_evaluate_node_predicates_05_filters.png')
         self.fail()
+
+    def test_get_symbols(self):
+        g, p1, p2 = get_consistent_graph_01()
+        exp = (p1.eq('n') & p2.eq('n')) | p2.ne('n')
+        result = get_symbols(exp)
+        result_symbol_str, result_literal_str = split_symbols_literals(result)
+
+        self.assertEqual(result_symbol_str, ['p1', 'p2'])
+        self.assertEqual(result_literal_str, ['LIT_p1_n', 'LIT_p2_n', 'LIT_p2_y'])
+

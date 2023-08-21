@@ -165,12 +165,14 @@ def main(input_path: Path):
         for v, data in g.nodes(data=True):
             if v == u:
                 if data['pred'] not in [true, True]:
-                    raise ValueError(f'Graph evaluation failed: final node "{v}" cannot be reached unless "{data["pred"]}"')
+                    raise ValueError(
+                        f'Graph evaluation failed: final node "{v}" cannot be reached unless "{data["pred"]}"')
+
 
 # def end_nodes_soundness_check(g: nx.DiGraph, enums: )
 
 if __name__ == "__main__":
     main2()
     main(Path('tests', 'context', 'questionnaire_simplified_enum.xml'))
-    #main(Path('tests', 'context', 'questionnaire_simplified_enum_end_node_unreachable.xml'))
-    #main(Path('tests', 'context', 'questionnaire_simplified_enum_fail.xml'))
+    # main(Path('tests', 'context', 'questionnaire_simplified_enum_end_node_unreachable.xml'))
+    # main(Path('tests', 'context', 'questionnaire_simplified_enum_fail.xml'))

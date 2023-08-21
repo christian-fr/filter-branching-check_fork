@@ -1,7 +1,13 @@
 import networkx as nx
+import numpy as np
+import pygraphviz
+from matplotlib import pyplot as plt
 from networkx import bfs_edges
 from PIL import Image
 import io
+
+from networkx.drawing.nx_agraph import graphviz_layout
+from pygraphviz import graphviz
 from pygraphviz.agraph import AGraph
 from typing import List, Any, Optional, Callable, Union, Dict, Tuple
 from contextlib import contextmanager
@@ -18,6 +24,7 @@ def timeit(func):
         total_time = end_time - start_time
         print(f'Function {func.__name__}{args} {kwargs} took {total_time:.4f} seconds')
         return result
+
     return timeit_wrapper
 
 
@@ -184,3 +191,7 @@ def timer(start=None):
     """
     t = Timer(start)
     yield t
+
+
+def get_mask(length: int) -> List[List[int]]:
+    return [[int(e) for e in format(i, 'b').zfill(length)] for i in range(2 ** length)]
